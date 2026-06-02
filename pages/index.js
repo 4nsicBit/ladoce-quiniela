@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabaseClient'
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Lock, Unlock, Download, Upload, Trash2, Edit3, Award, Globe, Share2, Menu, X, Zap, Plus, Settings, Trophy } from "lucide-react";
 
 // ── i18n ──────────────────────────────────────────────────────
@@ -237,6 +237,7 @@ export default function App() {
   const [view,setView]     = useState("home");
   const [isAdmin,setAdmin] = useState(false);
   const [pin,setPin]       = useState("");
+  const pinRef = useRef(null);
   const [pid,setPid]       = useState(null);
   const [phase,setPhase]   = useState("grupos");
   const [toast,setToast]   = useState(null);
@@ -264,7 +265,11 @@ export default function App() {
   const upd=(fn)=>setState(p=>fn(p));
 
   // Admin
-  const tryLogin=()=>{ if(pin===state.config.adminPin){setAdmin(true);setPin("");toast2("✓ Bienvenido admin");}else toast2(t.admin.wrong); };
+  const tryLogin=()=>{
+  const val=pinRef.current?pinRef.current.value:pin;
+  if(val===state.config.adminPin){setAdmin(true);if(pinRef.current)pinRef.current.value="";setPin("");toast2("✓ Bienvenido admin");}
+  else toast2(t.admin.wrong);
+};
   const addP=(name)=>{ if(!name.trim()) return; upd(s=>({...s,participants:[...s.participants,{id:`p${Date.now()}`,name:name.trim(),payments:{}}]})); };
   const removeP=(id)=>upd(s=>{ const p={...s.predictions}; delete p[id]; return{...s,participants:s.participants.filter(x=>x.id!==id),predictions:p}; });
   const togglePay=(pid,k)=>upd(s=>({...s,participants:s.participants.map(p=>p.id===pid?{...p,payments:{...p.payments,[k]:!p.payments[k]}}:p)}));
@@ -601,7 +606,7 @@ export default function App() {
         <div style={{fontFamily:"var(--fd)",fontSize:"24px",fontWeight:500,marginBottom:6}}>{t.admin.pinTitle}</div>
         <div style={{fontSize:"13px",color:"var(--tx3)",marginBottom:"1.5rem"}}>{t.admin.pinSub}</div>
         <div style={{display:"flex",gap:8,maxWidth:300}}>
-          <input type="password" placeholder="PIN" autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck="false" defaultValue="" id="pin-input" onKeyDown={e=>{ if(e.key==="Enter") tryLogin(); }} onInput={e=>setPin(e.target.value)} style={{flex:1}}/>
+          <input ref={pinRef} type="password" placeholder="PIN" autoComplete="off" defaultValue="" onKeyDown={e=>e.key==="Enter"&&tryLogin()} style={{flex:1}}
           <button className="primary" onClick={tryLogin}>{t.admin.enter}</button>
         </div>
         <div style={{marginTop:9,fontSize:"11px",color:"var(--tx3)"}}>{t.admin.pinDefault}</div>
