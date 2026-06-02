@@ -601,7 +601,7 @@ export default function App() {
         <div style={{fontFamily:"var(--fd)",fontSize:"24px",fontWeight:500,marginBottom:6}}>{t.admin.pinTitle}</div>
         <div style={{fontSize:"13px",color:"var(--tx3)",marginBottom:"1.5rem"}}>{t.admin.pinSub}</div>
         <div style={{display:"flex",gap:8,maxWidth:300}}>
-          <input type="password" placeholder="PIN" value={pin} onChange={e=>setPin(e.target.value)} onKeyDown={e=>e.key==="Enter"&&tryLogin()} autoComplete="off" style={{flex:1}}/>
+          <input type="password" placeholder="PIN" autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck="false" defaultValue="" id="pin-input" onKeyDown={e=>{ if(e.key==="Enter") tryLogin(); }} onInput={e=>setPin(e.target.value)} style={{flex:1}}/>
           <button className="primary" onClick={tryLogin}>{t.admin.enter}</button>
         </div>
         <div style={{marginTop:9,fontSize:"11px",color:"var(--tx3)"}}>{t.admin.pinDefault}</div>
