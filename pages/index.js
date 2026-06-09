@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabaseClient'
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react"
+import { useRouter } from "next/router";
 import { Lock, Unlock, Download, Upload, Trash2, Edit3, Award, Globe, Share2, Menu, X, Zap, Plus, Settings, Trophy } from "lucide-react";
 
 // ── i18n ──────────────────────────────────────────────────────
@@ -48,7 +49,7 @@ const GROUPS_2026 = {
 
 const makeKickoff = (gi, mi) => {
   const round = mi < 2 ? 0 : mi < 4 ? 1 : 2;
-  const bases = ["2026-06-11T20:00:00-06:00","2026-06-19T20:00:00-06:00","2026-06-26T20:00:00-06:00"];
+  const bases = ["2026-06-11T13:00:00-06:00","2026-06-19T13:00:00-06:00","2026-06-26T13:00:00-06:00"];
   return new Date(new Date(bases[round]).getTime() + ((gi*8+mi*3)%48)*3600000).toISOString();
 };
 
@@ -114,7 +115,7 @@ const pts=(pred,m,cfg)=>{
   return pw===aw?cfg.pointsWinner*mult:0;
 };
 const status=(k)=>{ const n=Date.now(),t=new Date(k).getTime(); return n<t?"pending":n<t+7200000?"live":"finished"; };
-const fmtD=(iso,lang)=>{ const d=new Date(iso),mo=T[lang].months; return `${d.getDate()} ${mo[d.getMonth()]} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; };
+const fmtD=(iso,lang)=>{ const mo=T[lang].months; const d=new Date(new Date(iso).toLocaleString("en-US",{timeZone:"America/Mexico_City"})); return `${d.getDate()} ${mo[d.getMonth()]} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; };
 
 // ── SVG LOGO (arco concéntrico estilo La Doce) ────────────────
 const LogoMark = ({ size = 28 }) => (
@@ -238,6 +239,8 @@ export default function App() {
   const [isAdmin,setAdmin] = useState(false);
   const [pin,setPin]       = useState("");
   const pinRef = useRef(null);
+  const router = useRouter();
+  const urlParticipant = router.query.participant || null;
   const [pid,setPid]       = useState(null);
   const [phase,setPhase]   = useState("grupos");
   const [toast,setToast]   = useState(null);
@@ -253,12 +256,43 @@ export default function App() {
 
   // Persist
   useEffect(()=>{ if(ready) save(state); },[state,ready]);
+  useEffect(()=>{ if(urlParticipant && ready) setPid(urlParticipant); },[urlParticipant,ready]);
+
+  // Sesion de 10 minutos para participantes con link
+  useEffect(()=>{
+    if(!urlParticipant) return;
+    const SESSION_KEY = "ld-session-ts";
+    const SESSION_DURATION = 10 * 60 * 1000; // 10 minutos
+    // Iniciar sesion si no existe
+    if(!localStorage.getItem(SESSION_KEY)){
+      localStorage.setItem(SESSION_KEY, Date.now().toString());
+    }
+    // Revisar cada 30 segundos
+    const interval = setInterval(()=>{
+      const ts = parseInt(localStorage.getItem(SESSION_KEY) || "0");
+      if(Date.now() - ts > SESSION_DURATION){
+        localStorage.removeItem("ld-participant-id");
+        localStorage.removeItem("ld-participant-name");
+        localStorage.removeItem(SESSION_KEY);
+        window.location.href = "/p/" + urlParticipant;
+      }
+    }, 30000);
+    // Renovar sesion en cada interaccion
+    const renovar = ()=> localStorage.setItem(SESSION_KEY, Date.now().toString());
+    window.addEventListener("click", renovar);
+    window.addEventListener("keydown", renovar);
+    return ()=>{
+      clearInterval(interval);
+      window.removeEventListener("click", renovar);
+      window.removeEventListener("keydown", renovar);
+    };
+  },[urlParticipant]);
 
   // Auto-lock past kickoffs
   useEffect(()=>{
     if(!ready) return;
     const now=Date.now();
-    setState(p=>({...p,matches:p.matches.map(m=>(!m.locked&&new Date(m.kickoff).getTime()<=now)?{...m,locked:true}:m)}));
+    setState(p=>({...p,matches:p.matches.map(m=>(!m.locked&&new Date(m.kickoff).getTime()-30*60*1000<=now)?{...m,locked:true}:m)}));
   },[ready]);
 
   const toast2=(msg)=>{ setToast(msg); setTimeout(()=>setToast(null),2500); };
@@ -270,7 +304,7 @@ export default function App() {
   if(val===state.config.adminPin){setAdmin(true);if(pinRef.current)pinRef.current.value="";setPin("");toast2("✓ Bienvenido admin");}
   else toast2(t.admin.wrong);
 };
-  const addP=(name)=>{ if(!name.trim()) return; upd(s=>({...s,participants:[...s.participants,{id:`p${Date.now()}`,name:name.trim(),payments:{}}]})); };
+  const addP=(name,nip)=>{ if(!name.trim()) return; upd(s=>({...s,participants:[...s.participants,{id:`p${Date.now()}`,name:name.trim(),payments:{},nip:nip||"1234"}]})); };
   const removeP=(id)=>upd(s=>{ const p={...s.predictions}; delete p[id]; return{...s,participants:s.participants.filter(x=>x.id!==id),predictions:p}; });
   const togglePay=(pid,k)=>upd(s=>({...s,participants:s.participants.map(p=>p.id===pid?{...p,payments:{...p.payments,[k]:!p.payments[k]}}:p)}));
   const updM=(id,f,v)=>upd(s=>({...s,matches:s.matches.map(m=>m.id===id?{...m,[f]:v}:m)}));
@@ -291,7 +325,7 @@ export default function App() {
   const boards = useMemo(()=>{
     const res={};
     [...PHASES.map(p=>p.key),"torneo"].forEach(k=>{
-      const ms=k==="torneo"?state.matches:state.matches.filter(m=>m.phase===k);
+      const ms=k==="torneo"?state.matches.sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff)):state.matches.filter(m=>m.phase===k).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff));
       res[k]=state.participants.filter(p=>p.payments[k]).map(p=>{
         const up=state.predictions[p.id]||{}; let score=0,hits=0,kx=0;
         ms.forEach(m=>{ const s=pts(up[m.id],m,state.config); score+=s; if(s>0) hits++; if(s>=state.config.pointsExact*state.config.knockoutMultiplier&&m.phase!=="grupos") kx++; });
@@ -443,7 +477,7 @@ export default function App() {
     );
     const part=state.participants.find(p=>p.id===pid);
     const up=state.predictions[pid]||{};
-    const ms=state.matches.filter(m=>m.phase===phase);
+    const ms=state.matches.filter(m=>m.phase===phase).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff));
     return(
       <div className="fade">
         <div style={{padding:"1rem 1rem 0",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
@@ -451,7 +485,7 @@ export default function App() {
             <div style={{fontFamily:"var(--fd)",fontSize:"19px",fontWeight:500}}>{part?.name}</div>
             <div style={{fontSize:"11px",color:"var(--tx3)"}}>Mundial 2026</div>
           </div>
-          <button className="ghost" onClick={()=>setPid(null)}>{t.pred.change}</button>
+          {!urlParticipant && <button className="ghost" onClick={()=>setPid(null)}>{t.pred.change}</button>}
         </div>
         {/* Phase tabs */}
         <div style={{display:"flex",gap:5,overflowX:"auto",padding:"0 1rem .9rem",scrollbarWidth:"none"}}>
@@ -475,9 +509,9 @@ export default function App() {
                 </div>
                 <div style={{fontSize:"12px",textAlign:"right"}}>{m.home||"—"}</div>
                 <div style={{display:"flex",gap:3,alignItems:"center",justifyContent:"center"}}>
-                  <input type="number" min="0" max="20" className="si" value={pr.home} disabled={m.locked||!m.home} onChange={e=>setPred(pid,m.id,"home",e.target.value)} style={{width:38}}/>
+                  <input type="number" min="0" max="20" className="si" key={`ph-${m.id}`} defaultValue={pr.home} disabled={m.locked||!m.home} onBlur={e=>setPred(pid,m.id,"home",e.target.value)} style={{width:38}}/>
                   <span style={{color:"var(--tx3)",fontSize:"11px"}}>–</span>
-                  <input type="number" min="0" max="20" className="si" value={pr.away} disabled={m.locked||!m.away} onChange={e=>setPred(pid,m.id,"away",e.target.value)} style={{width:38}}/>
+                  <input type="number" min="0" max="20" className="si" key={`pa-${m.id}`} defaultValue={pr.away} disabled={m.locked||!m.away} onBlur={e=>setPred(pid,m.id,"away",e.target.value)} style={{width:38}}/>
                 </div>
                 <div style={{fontSize:"12px"}}>{m.away||"—"}</div>
                 <div>{m.locked?<Lock size={11} style={{color:"var(--teal)",opacity:.7}}/>:<Unlock size={11} style={{color:"var(--tx3)",opacity:.2}}/>}</div>
@@ -491,7 +525,7 @@ export default function App() {
 
   // ── RESULTS ───────────────────────────────────────────────
   const Results=()=>{
-    const ms=state.matches.filter(m=>m.phase===phase);
+    const ms=state.matches.filter(m=>m.phase===phase).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff));
     return(
       <div className="fade" style={{padding:"1.5rem 1rem"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1rem",flexWrap:"wrap",gap:8}}>
@@ -524,9 +558,9 @@ export default function App() {
                   :<span style={{fontSize:"12px",textAlign:"right"}}>{m.home||"—"}</span>
                 }
                 <div style={{display:"flex",gap:3,alignItems:"center",justifyContent:"center"}}>
-                  <input type="number" min="0" max="20" className="si" value={m.homeScore??""} disabled={!isAdmin} onChange={e=>updM(m.id,"homeScore",e.target.value===""?null:parseInt(e.target.value))} style={{width:38}}/>
+                  <input type="number" min="0" max="20" className="si" key={`hs-${m.id}`} defaultValue={m.homeScore??""} disabled={!isAdmin} onBlur={e=>updM(m.id,"homeScore",e.target.value===""?null:parseInt(e.target.value))} style={{width:38}}/>
                   <span style={{color:"var(--tx3)",fontSize:"11px"}}>–</span>
-                  <input type="number" min="0" max="20" className="si" value={m.awayScore??""} disabled={!isAdmin} onChange={e=>updM(m.id,"awayScore",e.target.value===""?null:parseInt(e.target.value))} style={{width:38}}/>
+                  <input type="number" min="0" max="20" className="si" key={`as-${m.id}`} defaultValue={m.awayScore??""} disabled={!isAdmin} onBlur={e=>updM(m.id,"awayScore",e.target.value===""?null:parseInt(e.target.value))} style={{width:38}}/>
                 </div>
                 {isAdmin&&m.phase!=="grupos"
                   ?<input value={m.away} placeholder="Visitante" onChange={e=>updM(m.id,"away",e.target.value)} style={{fontSize:"12px"}}/>
@@ -623,9 +657,9 @@ export default function App() {
         <section style={{marginBottom:"2rem"}}>
           <div style={{fontSize:"10px",fontWeight:500,color:"var(--tx3)",letterSpacing:".1em",textTransform:"uppercase",marginBottom:11}}>{t.admin.participantsTitle}</div>
           <div style={{display:"flex",gap:8,marginBottom:11}}>
-            <input id="np" placeholder={t.admin.addName} style={{flex:1}}
-              onKeyDown={e=>{ if(e.key==="Enter"){addP(e.target.value);e.target.value="";} }}/>
-            <button className="primary" onClick={()=>{ const el=document.getElementById("np"); addP(el.value); el.value=""; }}>
+            <input id="np" placeholder={t.admin.addName} style={{flex:1}} onKeyDown={e=>{ if(e.key==="Enter"){addP(e.target.value,document.getElementById("np-nip").value);e.target.value="";document.getElementById("np-nip").value="";} }}/>
+            <input id="np-nip" placeholder="NIP" maxLength={4} style={{width:70,textAlign:"center"}} />
+            <button className="primary" onClick={()=>{ const el=document.getElementById("np"); const nip=document.getElementById("np-nip"); addP(el.value,nip.value); el.value=""; nip.value=""; }}>
               <Plus size={13}/>{t.admin.add}
             </button>
           </div>
@@ -634,6 +668,8 @@ export default function App() {
               <table>
                 <thead><tr>
                   <th>Nombre</th>
+                  <th>NIP</th>
+                  <th>Link</th>
                   {PHASES.map(p=><th key={p.key}>{t.phases[p.key].split(" ")[0]}</th>)}
                   <th>Torneo</th><th></th>
                 </tr></thead>
@@ -643,6 +679,28 @@ export default function App() {
                     {[...PHASES.map(x=>x.key),"torneo"].map(k=>(
                       <td key={k}><input type="checkbox" checked={!!p.payments[k]} onChange={()=>togglePay(p.id,k)}/></td>
                     ))}
+                    <td>
+                      <input
+                        type="text" maxLength={4}
+                        key={`nip-${p.id}`}
+                        defaultValue={p.nip||"1234"}
+                        onBlur={e=>upd(s=>({...s,participants:s.participants.map(x=>x.id===p.id?{...x,nip:e.target.value.replace(/\D/g,"")}:x)}))}
+                        style={{width:52,textAlign:"center",padding:"3px 6px",fontSize:13}}
+                      />
+                    </td>
+                    <td>
+                      <button
+                        onClick={()=>{
+                          const url=`${window.location.origin}/p/${p.id}`;
+                          navigator.clipboard.writeText(url);
+                          toast2("Link copiado");
+                        }}
+                        style={{padding:"3px 8px",fontSize:11}}
+                        title="Copiar link"
+                      >
+                        Link
+                      </button>
+                    </td>
                     <td><button className="danger" onClick={()=>removeP(p.id)} style={{padding:"3px 7px"}}><Trash2 size={11}/></button></td>
                   </tr>
                 ))}</tbody>
@@ -663,11 +721,11 @@ export default function App() {
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
                     <div>
                       <div style={{fontSize:"10px",color:"var(--tx3)",marginBottom:3}}>{t.admin.entryFee}</div>
-                      <input type="number" min="0" value={pool.entryFee} onChange={e=>updPool(key,"entryFee",parseInt(e.target.value)||0)}/>
+                      <input type="number" min="0" key={`fee-${key}`} defaultValue={pool.entryFee} onBlur={e=>updPool(key,"entryFee",parseInt(e.target.value)||0)}/>
                     </div>
                     <div>
                       <div style={{fontSize:"10px",color:"var(--tx3)",marginBottom:3}}>{t.admin.distribution}</div>
-                      <input type="text" value={pool.distribution.join(",")} onChange={e=>updPool(key,"distribution",e.target.value.split(",").map(x=>parseFloat(x)||0))}/>
+                      <input type="text" key={`dist-${key}`} defaultValue={pool.distribution.join(",")} onBlur={e=>updPool(key,"distribution",e.target.value.split(",").map(x=>parseFloat(x)||0))}/>
                     </div>
                   </div>
                   {sum!==100&&<div style={{marginTop:5,fontSize:"10px",color:"var(--amber)"}}>{t.admin.sumWarning}</div>}
