@@ -111,10 +111,10 @@ const flagUrl = (team) => {
 const DEFAULT={
   config:{adminPin:"1234",pointsExact:3,pointsWinner:1,knockoutMultiplier:2},
   pools:{
-    grupos:{entryFee:100,distribution:[100]},r32:{entryFee:100,distribution:[100]},
-    r16:{entryFee:100,distribution:[100]},cuartos:{entryFee:150,distribution:[70,30]},
-    semis:{entryFee:200,distribution:[70,30]},final:{entryFee:300,distribution:[100]},
-    torneo:{entryFee:500,distribution:[50,30,20]},
+    grupos:{entryFee:100,prizes:[1000,500,0]},r32:{entryFee:100,prizes:[1000,500,0]},
+    r16:{entryFee:100,prizes:[1000,500,0]},cuartos:{entryFee:150,prizes:[1500,750,0]},
+    semis:{entryFee:200,prizes:[2000,1000,0]},final:{entryFee:300,prizes:[3000,0,0]},
+    torneo:{entryFee:500,prizes:[5000,2500,1000]},
   },
   participants:[],
   matches:[...generateGroupMatches(),...generateKnockouts()],
@@ -261,337 +261,12 @@ td:first-child{text-align:left;font-size:13px}
 `;
 
 // ── APP ───────────────────────────────────────────────────────
-function PredInput({ matchId, field, initialValue, disabled, onSave }) {
-  const [val, setVal] = useState(initialValue || "");
-  const timerRef = useRef(null);
 
-  // Sincronizar si el valor externo cambia y el input no tiene foco
-  const inputRef = useRef(null);
-  useEffect(()=>{
-    if(inputRef.current && document.activeElement === inputRef.current) return;
-    if(initialValue !== undefined && initialValue !== null && initialValue !== "")
-      setVal(String(initialValue));
-  },[initialValue]);
+// ═══════════════════════════════════════════════════════════
+// COMPONENTES EXTERNOS — fuera de App para evitar re-renders
+// ═══════════════════════════════════════════════════════════
 
-  const handleChange = (e) => {
-    const v = e.target.value;
-    setVal(v);
-    // Guardar 800ms despues de parar de escribir
-    if(timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(()=> onSave(v), 800);
-  };
-
-  const handleBlur = (e) => {
-    if(timerRef.current) clearTimeout(timerRef.current);
-    onSave(e.target.value);
-  };
-
-  return(
-    <input
-      ref={inputRef}
-      type="number" min="0" max="20"
-      className="si"
-      value={val}
-      disabled={disabled}
-      onChange={handleChange}
-      onBlur={handleBlur}
-      style={{width:38}}
-    />
-  );
-}
-
-function Predictions({ pid, setPid, phase, setPhase, participants, predictions, matches, config, setPred, urlParticipant, t, lang }) {
-  if(!pid) return(
-    <div className="fade" style={{padding:"1.5rem 1rem"}}>
-      <div style={{fontFamily:"var(--fd)",fontSize:"24px",fontWeight:500,marginBottom:6}}>{t.pred.whoAreYou}</div>
-      <div style={{fontSize:"13px",color:"var(--tx3)",marginBottom:"1.5rem"}}>{t.pred.selectName}</div>
-      {participants.length===0
-        ? <div style={{color:"var(--tx3)",fontSize:"13px"}}>{t.pred.noParticipants}</div>
-        : <div style={{display:"grid",gap:6}}>{participants.map(p=>(
-            <button key={p.id} onClick={()=>setPid(p.id)} style={{padding:"13px 16px",justifyContent:"flex-start",fontSize:"15px",color:"var(--tx)",fontFamily:"var(--fd)",letterSpacing:".02em"}}>{p.name}</button>
-          ))}</div>
-      }
-    </div>
-  );
-  const part = participants.find(p=>p.id===pid);
-  const up = predictions[pid]||{};
-  const ms = matches.filter(m=>m.phase===phase).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff));
-  return(
-    <div className="fade">
-      <div style={{padding:"1rem 1rem 0",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-        <div>
-          <div style={{fontFamily:"var(--fd)",fontSize:"19px",fontWeight:500}}>{part?.name}</div>
-          <div style={{fontSize:"11px",color:"var(--tx3)"}}>Mundial 2026</div>
-        </div>
-        {!urlParticipant&&<button className="ghost" onClick={()=>setPid(null)}>{t.pred.change}</button>}
-      </div>
-      <div style={{display:"flex",gap:5,overflowX:"auto",padding:"0 1rem .9rem",scrollbarWidth:"none"}}>
-        {PHASES.map(({key})=>(
-          <button key={key} onClick={()=>setPhase(key)} className={`ptab${phase===key?" on":""}`}>
-            {t.phases[key]} {part?.payments[key]?"✓":""}
-          </button>
-        ))}
-      </div>
-      {!part?.payments[phase]&&(
-        <div style={{margin:"0 1rem .9rem",padding:"9px 13px",background:"var(--amber-d)",borderRadius:"var(--r)",fontSize:"12px",color:"var(--amber)"}}>{t.pred.notPaid}</div>
-      )}
-      <div style={{padding:"0 1rem 1.5rem",display:"grid",gap:4}}>
-        {ms.map(m=>{
-          const pr=up[m.id]||{home:"",away:""};
-          return(
-            <div key={m.id} className={`mrow${m.locked?" lk":""}`}>
-              <div>
-                <div style={{fontSize:"9px",color:"var(--tx3)"}}>{m.group?`G-${m.group}`:m.id}</div>
-                <div style={{fontSize:"9px",color:"var(--tx3)",marginTop:2}}>{fmtD(m.kickoff,lang)}</div>
-              </div>
-              <div style={{fontSize:"12px",textAlign:"right"}}>{m.home||"—"}</div>
-              <div style={{display:"flex",gap:3,alignItems:"center",justifyContent:"center"}}>
-                <PredInput matchId={m.id} field="home" initialValue={pr.home} disabled={m.locked||!m.home} onSave={v=>setPred(pid,m.id,"home",v)}/>
-                <span style={{color:"var(--tx3)",fontSize:"11px"}}>–</span>
-                <PredInput matchId={m.id} field="away" initialValue={pr.away} disabled={m.locked||!m.away} onSave={v=>setPred(pid,m.id,"away",v)}/>
-              </div>
-              <div style={{fontSize:"12px"}}>{m.away||"—"}</div>
-              <div>{m.locked?<Lock size={11} style={{color:"var(--teal)",opacity:.7}}/>:<Unlock size={11} style={{color:"var(--tx3)",opacity:.2}}/>}</div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function SessionTimer({ participantId }) {
-  const [remaining, setRemaining] = useState(()=>{
-    if(typeof window === "undefined") return 600;
-    const ts = parseInt(localStorage.getItem("ld-session-ts") || "0");
-    const elapsed = Math.floor((Date.now() - ts) / 1000);
-    return Math.max(0, 600 - elapsed);
-  });
-
-  useEffect(()=>{
-    const tick = ()=>{
-      const ts = parseInt(localStorage.getItem("ld-session-ts") || "0");
-      const elapsed = Math.floor((Date.now() - ts) / 1000);
-      const left = Math.max(0, 600 - elapsed);
-      setRemaining(left);
-      if(left === 0){
-        localStorage.removeItem("ld-participant-id");
-        localStorage.removeItem("ld-participant-name");
-        localStorage.removeItem("ld-session-ts");
-        window.location.href = "/p/" + participantId;
-      }
-    };
-    tick();
-    const interval = setInterval(tick, 1000);
-    const renovar = ()=> localStorage.setItem("ld-session-ts", Date.now().toString());
-    window.addEventListener("click", renovar);
-    window.addEventListener("keydown", renovar);
-    return ()=>{
-      clearInterval(interval);
-      window.removeEventListener("click", renovar);
-      window.removeEventListener("keydown", renovar);
-    };
-  },[participantId]);
-
-  const urgent = remaining < 120;
-  return(
-    <div style={{
-      display:"flex",alignItems:"center",gap:4,
-      padding:"4px 10px",borderRadius:20,
-      background:urgent?"rgba(217,95,95,0.15)":"rgba(91,184,168,0.1)",
-      border:`0.5px solid ${urgent?"var(--red)":"rgba(91,184,168,0.3)"}`,
-      fontSize:"11px",
-      color:urgent?"var(--red)":"var(--teal)",
-    }}>
-      <span style={{opacity:0.7}}>{urgent?"Sesion expira:":"Sesion:"}</span>
-      <span style={{fontWeight:500}}>{Math.floor(remaining/60)}:{String(remaining%60).padStart(2,"0")}</span>
-    </div>
-  );
-}
-
-export default function App() {
-  const [state,setState]   = useState(DEFAULT);
-  const [ready,setReady]   = useState(false);
-  const [lang,setLang]     = useState("es");
-  const [view,setView]     = useState("home");
-  const [isAdmin,setAdmin] = useState(false);
-  const [pin,setPin]       = useState("");
-  const pinRef = useRef(null);
-  const router = useRouter();
-  const urlParticipant = router.query.participant || null;
-  // Timer de sesion movido a componente separado para evitar re-renders
-  const [pid,setPid]       = useState(null);
-  const [phase,setPhase]   = useState("grupos");
-  const [toast,setToast]   = useState(null);
-  const [menu,setMenu]     = useState(false);
-  const t = T[lang];
-
-  // Boot
-  useEffect(()=>{
-    const s=document.createElement("style"); s.textContent=CSS; document.head.appendChild(s);
-    load().then(d=>{ if(d) setState(d); setReady(true); });
-    return ()=>document.head.removeChild(s);
-  },[]);
-
-  // Persist
-  useEffect(()=>{ if(ready) save(state); },[state,ready]);
-
-  // Polling: recargar estado desde Supabase cada 30s para participantes
-  useEffect(()=>{
-    if(!ready || !urlParticipant) return;
-    const interval = setInterval(async ()=>{
-      const fresh = await load();
-      if(fresh) setState(prev=>({...prev,
-        // Solo actualizar partidos y resultados, no predicciones ni config
-        // para evitar perder el foco en inputs mientras el usuario escribe
-        matches: fresh.matches,
-        participants: fresh.participants,
-        pools: fresh.pools,
-      }));
-    }, 30000);
-    return ()=> clearInterval(interval);
-  },[ready, urlParticipant]);
-  useEffect(()=>{ if(urlParticipant && ready) setPid(urlParticipant); },[urlParticipant,ready]);
-
-  // Sesion de 10 minutos para participantes con link
-  useEffect(()=>{
-    if(!urlParticipant) return;
-    const SESSION_KEY = "ld-session-ts";
-    const SESSION_DURATION = 10 * 60 * 1000; // 10 minutos
-    // Iniciar sesion si no existe
-    if(!localStorage.getItem(SESSION_KEY)){
-      localStorage.setItem(SESSION_KEY, Date.now().toString());
-    }
-    // Revisar cada 30 segundos
-    const interval = setInterval(()=>{
-      const ts = parseInt(localStorage.getItem(SESSION_KEY) || "0");
-      if(Date.now() - ts > SESSION_DURATION){
-        localStorage.removeItem("ld-participant-id");
-        localStorage.removeItem("ld-participant-name");
-        localStorage.removeItem(SESSION_KEY);
-        window.location.href = "/p/" + urlParticipant;
-      }
-    }, 30000);
-    // Renovar sesion en cada interaccion
-    const renovar = ()=> localStorage.setItem(SESSION_KEY, Date.now().toString());
-    window.addEventListener("click", renovar);
-    window.addEventListener("keydown", renovar);
-    return ()=>{
-      clearInterval(interval);
-      window.removeEventListener("click", renovar);
-      window.removeEventListener("keydown", renovar);
-    };
-  },[urlParticipant]);
-
-  // Auto-lock past kickoffs
-  useEffect(()=>{
-    if(!ready) return;
-    const now=Date.now();
-    setState(p=>({...p,matches:p.matches.map(m=>(!m.locked&&new Date(m.kickoff).getTime()-30*60*1000<=now)?{...m,locked:true}:m)}));
-  },[ready]);
-
-  const toast2=(msg)=>{ setToast(msg); setTimeout(()=>setToast(null),2500); };
-  const upd=(fn)=>setState(p=>fn(p));
-
-  // Admin
-  const tryLogin=()=>{
-  const val=pinRef.current?pinRef.current.value:pin;
-  if(val===state.config.adminPin){setAdmin(true);if(pinRef.current)pinRef.current.value="";setPin("");toast2("✓ Bienvenido admin");}
-  else toast2(t.admin.wrong);
-};
-  const addP=(name,nip)=>{ if(!name.trim()) return; upd(s=>({...s,participants:[...s.participants,{id:`p${Date.now()}`,name:name.trim(),payments:{},nip:nip||"1234"}]})); };
-  const removeP=(id)=>upd(s=>{ const p={...s.predictions}; delete p[id]; return{...s,participants:s.participants.filter(x=>x.id!==id),predictions:p}; });
-  const togglePay=(pid,k)=>upd(s=>({...s,participants:s.participants.map(p=>p.id===pid?{...p,payments:{...p.payments,[k]:!p.payments[k]}}:p)}));
-  const updM=(id,f,v)=>upd(s=>({...s,matches:s.matches.map(m=>m.id===id?{...m,[f]:v}:m)}));
-  const toggleLock=(id)=>upd(s=>({...s,matches:s.matches.map(m=>m.id===id?{...m,locked:!m.locked}:m)}));
-  const lockPhase=(ph)=>{ upd(s=>({...s,matches:s.matches.map(m=>m.phase===ph?{...m,locked:true}:m)})); toast2("🔒 Fase bloqueada"); };
-  const setPred=(p,m,f,v)=>upd(s=>({...s,predictions:{...s.predictions,[p]:{...(s.predictions[p]||{}),[m]:{...(s.predictions[p]?.[m]||{home:"",away:""}),[f]:v}}}}));
-  const updPool=(k,f,v)=>upd(s=>({...s,pools:{...s.pools,[k]:{...s.pools[k],[f]:v}}}));
-
-  const exportData=()=>{
-    const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
-    const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
-    a.download=`ladoce-quiniela-${new Date().toISOString().split("T")[0]}.json`; a.click();
-    toast2("✓ Backup descargado");
-  };
-  const importData=(e)=>{ const f=e.target.files?.[0]; if(!f) return; const r=new FileReader(); r.onload=ev=>{ try{setState(JSON.parse(ev.target.result));toast2("✓ Importado");}catch{toast2("⚠ Inválido");} }; r.readAsText(f); };
-
-  // Leaderboard con tiebreaker 3 niveles
-  const boards = useMemo(()=>{
-    const res={};
-    [...PHASES.map(p=>p.key),"torneo"].forEach(k=>{
-      const ms=k==="torneo"?state.matches.sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff)):state.matches.filter(m=>m.phase===k).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff));
-      res[k]=state.participants.filter(p=>p.payments[k]).map(p=>{
-        const up=state.predictions[p.id]||{}; let score=0,hits=0,kx=0;
-        ms.forEach(m=>{ const s=pts(up[m.id],m,state.config); score+=s; if(s>0) hits++; if(s>=state.config.pointsExact*state.config.knockoutMultiplier&&m.phase!=="grupos") kx++; });
-        return{id:p.id,name:p.name,score,hits,kx};
-      }).sort((a,b)=>b.score-a.score||b.hits-a.hits||b.kx-a.kx);
-    });
-    return res;
-  },[state]);
-
-  const pots = useMemo(()=>{
-    const r={};
-    [...PHASES.map(p=>p.key),"torneo"].forEach(k=>{ r[k]=state.participants.filter(p=>p.payments[k]).length*(state.pools[k]?.entryFee||0); });
-    return r;
-  },[state.participants,state.pools]);
-
-  const totalPot=Object.values(pots).reduce((a,b)=>a+b,0);
-
-  const shareWA=(k)=>{
-    const board=boards[k]||[]; const pot=pots[k]||0; const dist=state.pools[k]?.distribution||[100];
-    let msg=t.wa.msg+`${t.phases[k]} — ${mxn(pot)}\n\n`;
-    board.forEach((r,i)=>{ const em=["🥇","🥈","🥉"][i]||`${i+1}.`; const pr=i<dist.length?` (${mxn(pot*dist[i]/100)})`:""; msg+=`${em} ${r.name}: ${r.score} pts${pr}\n`; });
-    msg+="\n🌵 La Doce · Social.Roof.Bar · Powered by ForensicBit Solutions";
-    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`,"_blank");
-  };
-
-  if(!ready) return(
-    <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100vh",background:"#09090C",gap:16}}>
-      <LogoMark size={40}/>
-      <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"13px",color:"rgba(91,184,168,0.5)",letterSpacing:".12em"}}>LA DOCE</div>
-    </div>
-  );
-
-  // ── HEADER ────────────────────────────────────────────────
-  const Header=()=>(
-    <header style={{position:"sticky",top:0,zIndex:100,background:"rgba(9,9,12,0.95)",backdropFilter:"blur(16px)",borderBottom:"0.5px solid rgba(91,184,168,0.1)"}}>
-      <div className="gold-line"/>
-      <div style={{maxWidth:700,margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"space-between",height:52,padding:"0 1rem"}}>
-        {/* Brand */}
-        <div style={{display:"flex",alignItems:"center",gap:10}}>
-          <LogoMark size={30}/>
-          <div>
-            <div style={{fontFamily:"var(--fd)",fontSize:"15px",fontWeight:600,color:"var(--teal)",lineHeight:1.1,letterSpacing:".02em"}}>LA DOCE</div>
-            <div style={{fontSize:"9px",color:"var(--tx3)",letterSpacing:".12em",textTransform:"uppercase"}}>SOCIAL · ROOF · BAR</div>
-          </div>
-        </div>
-        {/* Controls */}
-        <div style={{display:"flex",gap:6,alignItems:"center"}}>
-          {urlParticipant&&<SessionTimer participantId={urlParticipant}/>}
-          <button className="ghost" onClick={()=>setLang(l=>l==="es"?"en":"es")} style={{padding:"4px 10px",fontSize:"11px",borderRadius:20}}>
-            <Globe size={11}/> {lang==="es"?"EN":"ES"}
-          </button>
-          <button className="ghost" onClick={()=>setMenu(o=>!o)} style={{padding:"6px 8px"}}>
-            {menu?<X size={16}/>:<Menu size={16}/>}
-          </button>
-        </div>
-      </div>
-      {/* Nav drawer */}
-      {menu&&(
-        <div style={{maxWidth:700,margin:"0 auto",padding:".6rem 1rem .9rem",display:"flex",flexWrap:"wrap",gap:5,borderTop:"0.5px solid rgba(255,255,255,0.05)"}}>
-          {[{id:"home",label:t.nav.home,icon:Trophy},{id:"predictions",label:t.nav.predictions,icon:Edit3},{id:"results",label:t.nav.results,icon:Zap},{id:"leaderboard",label:t.nav.leaderboard,icon:Award},{id:"admin",label:t.nav.admin,icon:Settings}].map(({id,label,icon:Icon})=>(
-            <button key={id} onClick={()=>{setView(id);setMenu(false);}} className={`ptab${view===id?" on":""}`} style={{fontSize:"12px"}}>
-              <Icon size={12}/>{label}
-            </button>
-          ))}
-        </div>
-      )}
-    </header>
-  );
-
-  // ── HOME DASHBOARD ──────────────────────────────────────────
-  const Home=()=>{
+function Home({state,urlParticipant,pots,totalPot,boards,t,lang}) {
     const now = Date.now();
     const part = urlParticipant ? state.participants.find(p=>p.id===urlParticipant) : null;
 
@@ -815,13 +490,9 @@ export default function App() {
       </div>
     </div>
     );
-  };
-  
-  // ── PREDICTIONS ───────────────────────────────────────────
-  // Componente externo - ver funcion Predictions() antes de App()
+}
 
-  // ── RESULTS ───────────────────────────────────────────────
-  const Results=()=>{
+function Results({state,phase,setPhase,isAdmin,updM,toggleLock,lockPhase,t,lang}) {
     const ms=state.matches.filter(m=>m.phase===phase).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff));
     return(
       <div className="fade" style={{padding:"1.5rem 1rem"}}>
@@ -874,11 +545,10 @@ export default function App() {
         </div>
       </div>
     );
-  };
+}
 
-  // ── LEADERBOARD ───────────────────────────────────────────
-  const Leaderboard=()=>{
-    const board=boards[phase]||[]; const pool=state.pools[phase]; const pot=pots[phase]||0; const dist=pool?.distribution||[100];
+function Leaderboard({state,phase,setPhase,isAdmin,pots,boards,shareWA,t}) {
+    const board=boards[phase]||[]; const pool=state.pools[phase]; const pot=pots[phase]||0; const prizes=pool?.prizes||[0,0,0]; const bolsa=Math.max(0,pot-prizes.reduce((a,b)=>a+b,0));
     return(
       <div className="fade" style={{padding:"1.5rem 1rem"}}>
         <div style={{fontFamily:"var(--fd)",fontSize:"22px",fontWeight:500,marginBottom:"1rem"}}>{t.lb.title}</div>
@@ -899,12 +569,18 @@ export default function App() {
             <button className="sand" onClick={()=>shareWA(phase)} style={{fontSize:"12px"}}><Share2 size={12}/> WhatsApp</button>
           </div>
           <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-            {dist.map((pct,i)=>(
+            {prizes.map((p,i)=>p>0&&(
               <div key={i} style={{background:"var(--bg3)",borderRadius:"var(--r)",padding:"6px 13px"}}>
                 <div style={{fontSize:"9px",color:"var(--tx3)"}}>{i+1}°</div>
-                <div style={{fontSize:"13px",fontWeight:500,color:"var(--sand-l)"}}>{mxn(pot*pct/100)}</div>
+                <div style={{fontSize:"13px",fontWeight:500,color:"var(--sand-l)"}}>{mxn(p)}</div>
               </div>
             ))}
+            {bolsa>0&&(
+              <div style={{background:"rgba(91,184,168,0.08)",borderRadius:"var(--r)",padding:"6px 13px",border:"0.5px solid var(--bdr)"}}>
+                <div style={{fontSize:"9px",color:"var(--tx3)"}}>Bolsa</div>
+                <div style={{fontSize:"13px",fontWeight:500,color:"var(--teal)"}}>{mxn(bolsa)}</div>
+              </div>
+            )}
           </div>
         </div>
         )}
@@ -914,14 +590,14 @@ export default function App() {
           :<div style={{display:"grid",gap:4}}>
             {board.map((row,idx)=>{
               const cl=["r1","r2","r3"][idx]||"";
-              const prize=idx<dist.length?mxn(pot*dist[idx]/100):null;
+              // prizes se usa directamente
               return(
                 <div key={row.id} style={{display:"grid",gridTemplateColumns:"30px 1fr auto auto auto",gap:10,alignItems:"center",padding:"11px 14px",background:idx<dist.length?"rgba(200,169,106,0.05)":"var(--bg2)",border:`0.5px solid ${idx<dist.length?"var(--bdrS)":"var(--bdr2)"}`,borderRadius:"var(--r)"}}>
                   <span className={cl} style={{fontSize:"14px",fontWeight:500}}>{idx+1}</span>
                   <span style={{fontSize:"14px",fontWeight:idx===0?500:400,fontFamily:idx<3?"var(--fd)":"var(--fb)"}}>{row.name}</span>
                   <span style={{fontSize:"10px",color:"var(--tx3)"}}>{row.hits} {t.lb.hits}</span>
                   <span style={{fontSize:"14px",fontWeight:500}}>{row.score} <span style={{fontSize:"10px",color:"var(--tx3)"}}>{t.lb.pts}</span></span>
-                  {isAdmin&&prize?<span style={{fontSize:"12px",color:"var(--sand)",fontWeight:500,textAlign:"right"}}>{prize}</span>:<span/>}
+                  {isAdmin&&prizes[idx]>0?<span style={{fontSize:"12px",color:"var(--sand)",fontWeight:500,textAlign:"right"}}>{mxn(prizes[idx])}</span>:<span/>}
                 </div>
               );
             })}
@@ -930,17 +606,19 @@ export default function App() {
         <div style={{marginTop:12,fontSize:"10px",color:"var(--tx3)"}}>{t.lb.tieNote}</div>
       </div>
     );
-  };
+}
 
-  // ── ADMIN ─────────────────────────────────────────────────
-  const Admin=()=>{
+function Admin({state,upd,isAdmin,setAdmin,pin,setPin,tryLogin,addP,removeP,
+  togglePay,updM,toggleLock,lockPhase,updPool,exportData,importData,
+  pots,toast2,t,lang,PHASES,status,fmtD}) {
+  const pinRef = useRef(null);
     if(!isAdmin) return(
       <div className="fade" style={{padding:"2rem 1rem"}}>
         <div style={{fontFamily:"var(--fd)",fontSize:"24px",fontWeight:500,marginBottom:6}}>{t.admin.pinTitle}</div>
         <div style={{fontSize:"13px",color:"var(--tx3)",marginBottom:"1.5rem"}}>{t.admin.pinSub}</div>
         <div style={{display:"flex",gap:8,maxWidth:300}}>
-          <input ref={pinRef} type="password" placeholder="PIN" autoComplete="off" defaultValue="" onKeyDown={e=>e.key==="Enter"&&tryLogin()} style={{flex:1}}/>
-          <button className="primary" onClick={tryLogin}>{t.admin.enter}</button>
+          <input ref={pinRef} type="password" placeholder="PIN" autoComplete="off" defaultValue="" onKeyDown={e=>e.key==="Enter"&&tryLogin(pinRef.current?.value||"")} style={{flex:1}}/>
+          <button className="primary" onClick={()=>tryLogin(pinRef.current?.value||"")}>{t.admin.enter}</button>
         </div>
         <div style={{marginTop:9,fontSize:"11px",color:"var(--tx3)"}}>{t.admin.pinDefault}</div>
       </div>
@@ -1014,7 +692,7 @@ export default function App() {
           <div style={{fontSize:"10px",fontWeight:500,color:"var(--tx3)",letterSpacing:".1em",textTransform:"uppercase",marginBottom:11}}>{t.admin.poolsTitle}</div>
           <div style={{display:"grid",gap:7}}>
             {[...PHASES,{key:"torneo"}].map(({key})=>{
-              const pool=state.pools[key]; const sum=pool.distribution.reduce((a,b)=>a+b,0);
+              const pool=state.pools[key];
               return(
                 <div key={key} style={{background:"var(--bg2)",border:"0.5px solid var(--bdr2)",borderRadius:"var(--r)",padding:"11px 13px"}}>
                   <div style={{fontSize:"13px",fontWeight:500,marginBottom:9,fontFamily:"var(--fd)"}}>{t.phases[key]}</div>
@@ -1023,12 +701,24 @@ export default function App() {
                       <div style={{fontSize:"10px",color:"var(--tx3)",marginBottom:3}}>{t.admin.entryFee}</div>
                       <input type="number" min="0" key={`fee-${key}`} defaultValue={pool.entryFee} onBlur={e=>updPool(key,"entryFee",parseInt(e.target.value)||0)}/>
                     </div>
-                    <div>
-                      <div style={{fontSize:"10px",color:"var(--tx3)",marginBottom:3}}>{t.admin.distribution}</div>
-                      <input type="text" key={`dist-${key}`} defaultValue={pool.distribution.join(",")} onBlur={e=>updPool(key,"distribution",e.target.value.split(",").map(x=>parseFloat(x)||0))}/>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
+                      {["1°","2°","3°"].map((pos,i)=>(
+                        <div key={i}>
+                          <div style={{fontSize:"10px",color:"var(--tx3)",marginBottom:3}}>{pos} lugar</div>
+                          <PrizeInput
+                            key={`prize-${key}-${i}`}
+                            initialValue={pool.prizes?.[i]||0}
+                            onSave={v=>{
+                              const newPrizes=[...(pool.prizes||[0,0,0])];
+                              newPrizes[i]=v;
+                              updPool(key,"prizes",newPrizes);
+                            }}
+                          />
+                        </div>
+                      ))}
                     </div>
                   </div>
-                  {sum!==100&&<div style={{marginTop:5,fontSize:"10px",color:"var(--amber)"}}>{t.admin.sumWarning}</div>}
+                  {(()=>{ const total=(pool.prizes||[]).reduce((a,b)=>a+b,0); const p=pots[key]||0; return total>p&&p>0?<div style={{marginTop:5,fontSize:"10px",color:"var(--amber)"}}>⚠ Premios ({mxn(total)}) superan el pozo ({mxn(p)})</div>:null; })()}
                 </div>
               );
             })}
@@ -1110,14 +800,368 @@ export default function App() {
         </div>
       </div>
     );
+}
+
+function PredInput({ matchId, field, initialValue, disabled, onSave }) {
+  const [val, setVal] = useState(initialValue || "");
+  const timerRef = useRef(null);
+
+  // Sincronizar si el valor externo cambia y el input no tiene foco
+  const inputRef = useRef(null);
+  useEffect(()=>{
+    if(inputRef.current && document.activeElement === inputRef.current) return;
+    if(initialValue !== undefined && initialValue !== null && initialValue !== "")
+      setVal(String(initialValue));
+  },[initialValue]);
+
+  const handleChange = (e) => {
+    const v = e.target.value;
+    setVal(v);
+    // Guardar 800ms despues de parar de escribir
+    if(timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(()=> onSave(v), 800);
   };
 
+  const handleBlur = (e) => {
+    if(timerRef.current) clearTimeout(timerRef.current);
+    onSave(e.target.value);
+  };
+
+  return(
+    <input
+      ref={inputRef}
+      type="number" min="0" max="20"
+      className="si"
+      value={val}
+      disabled={disabled}
+      onChange={handleChange}
+      onBlur={handleBlur}
+      style={{width:38}}
+    />
+  );
+}
+
+function Predictions({ pid, setPid, phase, setPhase, participants, predictions, matches, config, setPred, urlParticipant, t, lang }) {
+  if(!pid) return(
+    <div className="fade" style={{padding:"1.5rem 1rem"}}>
+      <div style={{fontFamily:"var(--fd)",fontSize:"24px",fontWeight:500,marginBottom:6}}>{t.pred.whoAreYou}</div>
+      <div style={{fontSize:"13px",color:"var(--tx3)",marginBottom:"1.5rem"}}>{t.pred.selectName}</div>
+      {participants.length===0
+        ? <div style={{color:"var(--tx3)",fontSize:"13px"}}>{t.pred.noParticipants}</div>
+        : <div style={{display:"grid",gap:6}}>{participants.map(p=>(
+            <button key={p.id} onClick={()=>setPid(p.id)} style={{padding:"13px 16px",justifyContent:"flex-start",fontSize:"15px",color:"var(--tx)",fontFamily:"var(--fd)",letterSpacing:".02em"}}>{p.name}</button>
+          ))}</div>
+      }
+    </div>
+  );
+  const part = participants.find(p=>p.id===pid);
+  const up = predictions[pid]||{};
+  const ms = matches.filter(m=>m.phase===phase).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff));
+  return(
+    <div className="fade">
+      <div style={{padding:"1rem 1rem 0",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+        <div>
+          <div style={{fontFamily:"var(--fd)",fontSize:"19px",fontWeight:500}}>{part?.name}</div>
+          <div style={{fontSize:"11px",color:"var(--tx3)"}}>Mundial 2026</div>
+        </div>
+        {!urlParticipant&&<button className="ghost" onClick={()=>setPid(null)}>{t.pred.change}</button>}
+      </div>
+      <div style={{display:"flex",gap:5,overflowX:"auto",padding:"0 1rem .9rem",scrollbarWidth:"none"}}>
+        {PHASES.map(({key})=>(
+          <button key={key} onClick={()=>setPhase(key)} className={`ptab${phase===key?" on":""}`}>
+            {t.phases[key]} {part?.payments[key]?"✓":""}
+          </button>
+        ))}
+      </div>
+      {!part?.payments[phase]&&(
+        <div style={{margin:"0 1rem .9rem",padding:"9px 13px",background:"var(--amber-d)",borderRadius:"var(--r)",fontSize:"12px",color:"var(--amber)"}}>{t.pred.notPaid}</div>
+      )}
+      <div style={{padding:"0 1rem 1.5rem",display:"grid",gap:4}}>
+        {ms.map(m=>{
+          const pr=up[m.id]||{home:"",away:""};
+          return(
+            <div key={m.id} className={`mrow${m.locked?" lk":""}`}>
+              <div>
+                <div style={{fontSize:"9px",color:"var(--tx3)"}}>{m.group?`G-${m.group}`:m.id}</div>
+                <div style={{fontSize:"9px",color:"var(--tx3)",marginTop:2}}>{fmtD(m.kickoff,lang)}</div>
+              </div>
+              <div style={{fontSize:"12px",textAlign:"right"}}>{m.home||"—"}</div>
+              <div style={{display:"flex",gap:3,alignItems:"center",justifyContent:"center"}}>
+                <PredInput matchId={m.id} field="home" initialValue={pr.home} disabled={m.locked||!m.home} onSave={v=>setPred(pid,m.id,"home",v)}/>
+                <span style={{color:"var(--tx3)",fontSize:"11px"}}>–</span>
+                <PredInput matchId={m.id} field="away" initialValue={pr.away} disabled={m.locked||!m.away} onSave={v=>setPred(pid,m.id,"away",v)}/>
+              </div>
+              <div style={{fontSize:"12px"}}>{m.away||"—"}</div>
+              <div>{m.locked?<Lock size={11} style={{color:"var(--teal)",opacity:.7}}/>:<Unlock size={11} style={{color:"var(--tx3)",opacity:.2}}/>}</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function PrizeInput({ initialValue, onSave }) {
+  const [val, setVal] = useState(initialValue || 0);
+  const inputRef = useRef(null);
+  useEffect(()=>{
+    if(inputRef.current && document.activeElement === inputRef.current) return;
+    setVal(initialValue || 0);
+  },[initialValue]);
+  return(
+    <input
+      ref={inputRef}
+      type="number" min="0"
+      value={val}
+      onChange={e=>setVal(e.target.value)}
+      onBlur={e=>onSave(parseInt(e.target.value)||0)}
+      style={{width:"100%"}}
+    />
+  );
+}
+
+function SessionTimer({ participantId }) {
+  const [remaining, setRemaining] = useState(()=>{
+    if(typeof window === "undefined") return 600;
+    const ts = parseInt(localStorage.getItem("ld-session-ts") || "0");
+    const elapsed = Math.floor((Date.now() - ts) / 1000);
+    return Math.max(0, 600 - elapsed);
+  });
+
+  useEffect(()=>{
+    const tick = ()=>{
+      const ts = parseInt(localStorage.getItem("ld-session-ts") || "0");
+      const elapsed = Math.floor((Date.now() - ts) / 1000);
+      const left = Math.max(0, 600 - elapsed);
+      setRemaining(left);
+      if(left === 0){
+        localStorage.removeItem("ld-participant-id");
+        localStorage.removeItem("ld-participant-name");
+        localStorage.removeItem("ld-session-ts");
+        window.location.href = "/p/" + participantId;
+      }
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
+    const renovar = ()=> localStorage.setItem("ld-session-ts", Date.now().toString());
+    window.addEventListener("click", renovar);
+    window.addEventListener("keydown", renovar);
+    return ()=>{
+      clearInterval(interval);
+      window.removeEventListener("click", renovar);
+      window.removeEventListener("keydown", renovar);
+    };
+  },[participantId]);
+
+  const urgent = remaining < 120;
+  return(
+    <div style={{
+      display:"flex",alignItems:"center",gap:4,
+      padding:"4px 10px",borderRadius:20,
+      background:urgent?"rgba(217,95,95,0.15)":"rgba(91,184,168,0.1)",
+      border:`0.5px solid ${urgent?"var(--red)":"rgba(91,184,168,0.3)"}`,
+      fontSize:"11px",
+      color:urgent?"var(--red)":"var(--teal)",
+    }}>
+      <span style={{opacity:0.7}}>{urgent?"Sesion expira:":"Sesion:"}</span>
+      <span style={{fontWeight:500}}>{Math.floor(remaining/60)}:{String(remaining%60).padStart(2,"0")}</span>
+    </div>
+  );
+}
+
+export default function App() {
+  const [state,setState]   = useState(DEFAULT);
+  const [ready,setReady]   = useState(false);
+  const [lang,setLang]     = useState("es");
+  const [view,setView]     = useState("home");
+  const [isAdmin,setAdmin] = useState(false);
+  const [pin,setPin]       = useState("");
+  const pinRef = useRef(null);
+  const router = useRouter();
+  const urlParticipant = router.query.participant || null;
+  // Timer de sesion movido a componente separado para evitar re-renders
+  const [pid,setPid]       = useState(null);
+  const [phase,setPhase]   = useState("grupos");
+  const [toast,setToast]   = useState(null);
+  const [menu,setMenu]     = useState(false);
+  const t = T[lang];
+
+  // Boot
+  useEffect(()=>{
+    const s=document.createElement("style"); s.textContent=CSS; document.head.appendChild(s);
+    load().then(d=>{ if(d) setState(d); setReady(true); });
+    return ()=>document.head.removeChild(s);
+  },[]);
+
+  // Persist
+  useEffect(()=>{ if(ready) save(state); },[state,ready]);
+
+  // Polling: recargar estado desde Supabase cada 30s para participantes
+  useEffect(()=>{
+    if(!ready || !urlParticipant) return;
+    const interval = setInterval(async ()=>{
+      const fresh = await load();
+      if(fresh) setState(prev=>({...prev,
+        // Solo actualizar partidos y resultados, no predicciones ni config
+        // para evitar perder el foco en inputs mientras el usuario escribe
+        matches: fresh.matches,
+        participants: fresh.participants,
+        pools: fresh.pools,
+      }));
+    }, 30000);
+    return ()=> clearInterval(interval);
+  },[ready, urlParticipant]);
+  useEffect(()=>{ if(urlParticipant && ready) setPid(urlParticipant); },[urlParticipant,ready]);
+
+  // Sesion de 10 minutos para participantes con link
+  useEffect(()=>{
+    if(!urlParticipant) return;
+    const SESSION_KEY = "ld-session-ts";
+    const SESSION_DURATION = 10 * 60 * 1000; // 10 minutos
+    // Iniciar sesion si no existe
+    if(!localStorage.getItem(SESSION_KEY)){
+      localStorage.setItem(SESSION_KEY, Date.now().toString());
+    }
+    // Revisar cada 30 segundos
+    const interval = setInterval(()=>{
+      const ts = parseInt(localStorage.getItem(SESSION_KEY) || "0");
+      if(Date.now() - ts > SESSION_DURATION){
+        localStorage.removeItem("ld-participant-id");
+        localStorage.removeItem("ld-participant-name");
+        localStorage.removeItem(SESSION_KEY);
+        window.location.href = "/p/" + urlParticipant;
+      }
+    }, 30000);
+    // Renovar sesion en cada interaccion
+    const renovar = ()=> localStorage.setItem(SESSION_KEY, Date.now().toString());
+    window.addEventListener("click", renovar);
+    window.addEventListener("keydown", renovar);
+    return ()=>{
+      clearInterval(interval);
+      window.removeEventListener("click", renovar);
+      window.removeEventListener("keydown", renovar);
+    };
+  },[urlParticipant]);
+
+  // Auto-lock past kickoffs
+  useEffect(()=>{
+    if(!ready) return;
+    const now=Date.now();
+    setState(p=>({...p,matches:p.matches.map(m=>(!m.locked&&new Date(m.kickoff).getTime()-30*60*1000<=now)?{...m,locked:true}:m)}));
+  },[ready]);
+
+  const toast2=(msg)=>{ setToast(msg); setTimeout(()=>setToast(null),2500); };
+  const upd=(fn)=>setState(p=>fn(p));
+
+  // Admin
+  const tryLogin=(val)=>{
+  if(val===state.config.adminPin){setAdmin(true);setPin("");toast2("✓ Bienvenido admin");}
+  else toast2(t.admin.wrong);
+};
+  const addP=(name,nip)=>{ if(!name.trim()) return; upd(s=>({...s,participants:[...s.participants,{id:`p${Date.now()}`,name:name.trim(),payments:{},nip:nip||"1234"}]})); };
+  const removeP=(id)=>upd(s=>{ const p={...s.predictions}; delete p[id]; return{...s,participants:s.participants.filter(x=>x.id!==id),predictions:p}; });
+  const togglePay=(pid,k)=>upd(s=>({...s,participants:s.participants.map(p=>p.id===pid?{...p,payments:{...p.payments,[k]:!p.payments[k]}}:p)}));
+  const updM=(id,f,v)=>upd(s=>({...s,matches:s.matches.map(m=>m.id===id?{...m,[f]:v}:m)}));
+  const toggleLock=(id)=>upd(s=>({...s,matches:s.matches.map(m=>m.id===id?{...m,locked:!m.locked}:m)}));
+  const lockPhase=(ph)=>{ upd(s=>({...s,matches:s.matches.map(m=>m.phase===ph?{...m,locked:true}:m)})); toast2("🔒 Fase bloqueada"); };
+  const setPred=(p,m,f,v)=>upd(s=>({...s,predictions:{...s.predictions,[p]:{...(s.predictions[p]||{}),[m]:{...(s.predictions[p]?.[m]||{home:"",away:""}),[f]:v}}}}));
+  const updPool=(k,f,v)=>upd(s=>({...s,pools:{...s.pools,[k]:{...s.pools[k],[f]:v}}}));
+
+  const exportData=()=>{
+    const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+    const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+    a.download=`ladoce-quiniela-${new Date().toISOString().split("T")[0]}.json`; a.click();
+    toast2("✓ Backup descargado");
+  };
+  const importData=(e)=>{ const f=e.target.files?.[0]; if(!f) return; const r=new FileReader(); r.onload=ev=>{ try{setState(JSON.parse(ev.target.result));toast2("✓ Importado");}catch{toast2("⚠ Inválido");} }; r.readAsText(f); };
+
+  // Leaderboard con tiebreaker 3 niveles
+  const boards = useMemo(()=>{
+    const res={};
+    [...PHASES.map(p=>p.key),"torneo"].forEach(k=>{
+      const ms=k==="torneo"?state.matches.sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff)):state.matches.filter(m=>m.phase===k).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff));
+      res[k]=state.participants.filter(p=>p.payments[k]).map(p=>{
+        const up=state.predictions[p.id]||{}; let score=0,hits=0,kx=0;
+        ms.forEach(m=>{ const s=pts(up[m.id],m,state.config); score+=s; if(s>0) hits++; if(s>=state.config.pointsExact*state.config.knockoutMultiplier&&m.phase!=="grupos") kx++; });
+        return{id:p.id,name:p.name,score,hits,kx};
+      }).sort((a,b)=>b.score-a.score||b.hits-a.hits||b.kx-a.kx);
+    });
+    return res;
+  },[state]);
+
+  const pots = useMemo(()=>{
+    const r={};
+    [...PHASES.map(p=>p.key),"torneo"].forEach(k=>{ r[k]=state.participants.filter(p=>p.payments[k]).length*(state.pools[k]?.entryFee||0); });
+    return r;
+  },[state.participants,state.pools]);
+
+  const totalPot=Object.values(pots).reduce((a,b)=>a+b,0);
+
+  const shareWA=(k)=>{
+    const board=boards[k]||[]; const pot=pots[k]||0; const prizes=state.pools[k]?.prizes||[0,0,0]; const bolsa=Math.max(0,pot-prizes.reduce((a,b)=>a+b,0));
+    let msg=t.wa.msg+`${t.phases[k]} — ${mxn(pot)}\n\n`;
+    board.forEach((r,i)=>{ const em=["🥇","🥈","🥉"][i]||`${i+1}.`; const pr=prizes[i]>0?` (${mxn(prizes[i])})`:""; msg+=`${em} ${r.name}: ${r.score} pts${pr}\n`; });
+    msg+="\n🌵 La Doce · Social.Roof.Bar · Powered by ForensicBit Solutions";
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`,"_blank");
+  };
+
+  if(!ready) return(
+    <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100vh",background:"#09090C",gap:16}}>
+      <LogoMark size={40}/>
+      <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"13px",color:"rgba(91,184,168,0.5)",letterSpacing:".12em"}}>LA DOCE</div>
+    </div>
+  );
+
+  // ── HEADER ────────────────────────────────────────────────
+  const Header=()=>(
+    <header style={{position:"sticky",top:0,zIndex:100,background:"rgba(9,9,12,0.95)",backdropFilter:"blur(16px)",borderBottom:"0.5px solid rgba(91,184,168,0.1)"}}>
+      <div className="gold-line"/>
+      <div style={{maxWidth:700,margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"space-between",height:52,padding:"0 1rem"}}>
+        {/* Brand */}
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <LogoMark size={30}/>
+          <div>
+            <div style={{fontFamily:"var(--fd)",fontSize:"15px",fontWeight:600,color:"var(--teal)",lineHeight:1.1,letterSpacing:".02em"}}>LA DOCE</div>
+            <div style={{fontSize:"9px",color:"var(--tx3)",letterSpacing:".12em",textTransform:"uppercase"}}>SOCIAL · ROOF · BAR</div>
+          </div>
+        </div>
+        {/* Controls */}
+        <div style={{display:"flex",gap:6,alignItems:"center"}}>
+          {urlParticipant&&<SessionTimer participantId={urlParticipant}/>}
+          <button className="ghost" onClick={()=>setLang(l=>l==="es"?"en":"es")} style={{padding:"4px 10px",fontSize:"11px",borderRadius:20}}>
+            <Globe size={11}/> {lang==="es"?"EN":"ES"}
+          </button>
+          <button className="ghost" onClick={()=>setMenu(o=>!o)} style={{padding:"6px 8px"}}>
+            {menu?<X size={16}/>:<Menu size={16}/>}
+          </button>
+        </div>
+      </div>
+      {/* Nav drawer */}
+      {menu&&(
+        <div style={{maxWidth:700,margin:"0 auto",padding:".6rem 1rem .9rem",display:"flex",flexWrap:"wrap",gap:5,borderTop:"0.5px solid rgba(255,255,255,0.05)"}}>
+          {[{id:"home",label:t.nav.home,icon:Trophy},{id:"predictions",label:t.nav.predictions,icon:Edit3},{id:"results",label:t.nav.results,icon:Zap},{id:"leaderboard",label:t.nav.leaderboard,icon:Award},{id:"admin",label:t.nav.admin,icon:Settings}].map(({id,label,icon:Icon})=>(
+            <button key={id} onClick={()=>{setView(id);setMenu(false);}} className={`ptab${view===id?" on":""}`} style={{fontSize:"12px"}}>
+              <Icon size={12}/>{label}
+            </button>
+          ))}
+        </div>
+      )}
+    </header>
+  );
+
+  // ── HOME DASHBOARD ──────────────────────────────────────────
+  // Componentes extraidos — ver funciones externas arriba de App()
+  // Home, Results, Leaderboard, Admin son componentes externos
   // ── RENDER ────────────────────────────────────────────────
   return(
     <div style={{minHeight:"100vh",background:"var(--bg)"}}>
       <Header/>
       <main style={{maxWidth:700,margin:"0 auto"}}>
-        {view==="home"        && <Home/>}
+        {view==="home" && <Home
+            state={state} urlParticipant={urlParticipant}
+            pots={pots} totalPot={totalPot} boards={boards}
+            t={t} lang={lang}
+          />}
         {view==="predictions" && <Predictions
             pid={pid} setPid={setPid}
             phase={phase} setPhase={setPhase}
@@ -1129,9 +1173,25 @@ export default function App() {
             urlParticipant={urlParticipant}
             t={t} lang={lang}
           />}
-        {view==="results"     && <Results/>}
-        {view==="leaderboard" && <Leaderboard/>}
-        {view==="admin"       && <Admin/>}
+        {view==="results" && <Results
+            state={state} phase={phase} setPhase={setPhase}
+            isAdmin={isAdmin} updM={updM} toggleLock={toggleLock}
+            lockPhase={lockPhase} t={t} lang={lang}
+          />}
+        {view==="leaderboard" && <Leaderboard
+            state={state} phase={phase} setPhase={setPhase}
+            isAdmin={isAdmin} pots={pots} boards={boards}
+            shareWA={shareWA} t={t}
+          />}
+        {view==="admin" && <Admin
+            state={state} upd={upd} isAdmin={isAdmin} setAdmin={setAdmin}
+            pin={pin} setPin={setPin} tryLogin={tryLogin}
+            addP={addP} removeP={removeP} togglePay={togglePay}
+            updM={updM} toggleLock={toggleLock} lockPhase={lockPhase}
+            updPool={updPool} exportData={exportData} importData={importData}
+            pots={pots} toast2={toast2} t={t} lang={lang}
+            PHASES={PHASES} status={status} fmtD={fmtD}
+          />}
       </main>
       {toast&&<div className="toast">{toast}</div>}
     </div>
