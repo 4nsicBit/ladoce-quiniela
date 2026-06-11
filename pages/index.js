@@ -256,6 +256,16 @@ export default function App() {
 
   // Persist
   useEffect(()=>{ if(ready) save(state); },[state,ready]);
+
+  // Polling: recargar estado desde Supabase cada 30s para participantes
+  useEffect(()=>{
+    if(!ready || !urlParticipant) return;
+    const interval = setInterval(async ()=>{
+      const fresh = await load();
+      if(fresh) setState(fresh);
+    }, 30000);
+    return ()=> clearInterval(interval);
+  },[ready, urlParticipant]);
   useEffect(()=>{ if(urlParticipant && ready) setPid(urlParticipant); },[urlParticipant,ready]);
 
   // Sesion de 10 minutos para participantes con link
