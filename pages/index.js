@@ -78,6 +78,36 @@ const generateKnockouts = () => {
 
 const PHASES=[{key:"grupos"},{key:"r32"},{key:"r16"},{key:"cuartos"},{key:"semis"},{key:"final"}];
 
+
+const FLAGS = {
+  "Mexico":"mx","Argentina":"ar","Brasil":"br","Francia":"fr",
+  "Inglaterra":"gb-eng","Espana":"es","Alemania":"de",
+  "Portugal":"pt","Paises Bajos":"nl","Belgica":"be",
+  "Uruguay":"uy","Colombia":"co","Ecuador":"ec",
+  "Paraguay":"py","Estados Unidos":"us","Canada":"ca",
+  "Panama":"pa","Marruecos":"ma","Senegal":"sn",
+  "Ghana":"gh","Costa de Marfil":"ci","Egipto":"eg",
+  "Sudafrica":"za","Cabo Verde":"cv","RD Congo":"cd",
+  "Argelia":"dz","Jordania":"jo","Irak":"iq",
+  "Arabia Saudita":"sa","Iran":"ir","Japon":"jp",
+  "Corea del Sur":"kr","Australia":"au","Uzbekistan":"uz",
+  "Qatar":"qa","Suiza":"ch","Chequia":"cz","Croacia":"hr",
+  "Escocia":"gb-sct","Bosnia y Herz.":"ba","Noruega":"no",
+  "Suecia":"se","Tunez":"tn","Nueva Zelanda":"nz",
+  "Curazao":"cw","Haiti":"ht","Turquia":"tr","Austria":"at",
+  "Sudan":"sd","Irak":"iq",
+};
+
+const flagUrl = (team) => {
+  if(!team) return null;
+  const normalized = team
+    .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .replace("Estados Unidos","us")
+    .replace("Canada","ca");
+  const code = FLAGS[normalized] || FLAGS[team];
+  return code ? "https://flagcdn.com/w160/" + code + ".png" : null;
+};
+
 const DEFAULT={
   config:{adminPin:"1234",pointsExact:3,pointsWinner:1,knockoutMultiplier:2},
   pools:{
@@ -404,73 +434,190 @@ export default function App() {
     </header>
   );
 
-  // ── HOME ──────────────────────────────────────────────────
-  const Home=()=>(
-    <div className="fade">
-      {/* Hero */}
-      <div className="hero-bg" style={{textAlign:"center",padding:"2.5rem 1rem 2rem"}}>
-        <div style={{display:"flex",justifyContent:"center",marginBottom:16}}>
-          <LogoMark size={52}/>
+  // ── HOME DASHBOARD ──────────────────────────────────────────
+  const Home=()=>{
+    const now = Date.now();
+    const part = urlParticipant ? state.participants.find(p=>p.id===urlParticipant) : null;
+
+    const upcoming = state.matches
+      .filter(m=>m.home&&m.away&&new Date(m.kickoff).getTime()>now-7200000)
+      .sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff));
+
+    const next2 = upcoming.slice(0,2);
+    const next4 = upcoming.slice(0,4);
+
+    const live = state.matches.filter(m=>{
+      const k=new Date(m.kickoff).getTime();
+      return now>=k&&now<=k+7200000&&m.home&&m.away;
+    });
+
+    const myPoints = part ? (() => {
+      let total=0;
+      state.matches.forEach(m=>{
+        const pred=(state.predictions[urlParticipant]||{})[m.id];
+        if(pred) total+=pts(pred,m,state.config);
+      });
+      return total;
+    })() : 0;
+
+    const pendingPreds = part ? state.matches.filter(m=>{
+      const k=new Date(m.kickoff).getTime();
+      const pred=(state.predictions[urlParticipant]||{})[m.id];
+      return m.home&&m.away&&k>now&&(!pred||pred.home===""||pred.away==="");
+    }).length : 0;
+
+    const countdown=(iso)=>{
+      const diff=new Date(iso).getTime()-now;
+      if(diff<=0) return "En curso";
+      const h=Math.floor(diff/3600000);
+      const m=Math.floor((diff%3600000)/60000);
+      if(h>48) return Math.floor(h/24)+"d "+h%24+"h";
+      if(h>0) return h+"h "+m+"m";
+      return m+"m";
+    };
+
+    const stBadge=(m)=>{
+      const k=new Date(m.kickoff).getTime();
+      if(now>=k&&now<=k+7200000) return {label:"En vivo",bg:"var(--amber-d)",color:"var(--amber)",dot:true};
+      if(m.homeScore!==null) return {label:"Terminado",bg:"var(--green-d)",color:"var(--green)",dot:false};
+      return {label:fmtD(m.kickoff,lang),bg:"var(--bg4)",color:"var(--tx3)",dot:false};
+    };
+
+    const MatchCard=({m,size="sm"})=>{
+      const st=stBadge(m);
+      const diff=new Date(m.kickoff).getTime()-now;
+      const urgent=diff<3600000&&diff>0;
+      const hUrl=flagUrl(m.home), aUrl=flagUrl(m.away);
+      return(
+        <div style={{position:"relative",overflow:"hidden",padding:size==="lg"?"14px":"10px 12px",background:urgent?"rgba(200,169,106,0.06)":"var(--bg2)",border:`0.5px solid ${urgent?"var(--bdrS)":"var(--bdr2)"}`,borderRadius:"var(--r)",marginBottom:5}}>
+          <div style={{position:"absolute",inset:0,display:"flex",pointerEvents:"none"}}>
+            {hUrl&&<div style={{flex:1,backgroundImage:`url(${hUrl})`,backgroundSize:"cover",backgroundPosition:"center right",opacity:0.07}}/>}
+            {aUrl&&<div style={{flex:1,backgroundImage:`url(${aUrl})`,backgroundSize:"cover",backgroundPosition:"center left",opacity:0.07}}/>}
+          </div>
+          <div style={{position:"relative"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+              <span style={{fontSize:"9px",color:"var(--tx3)"}}>{m.group?"Grupo "+m.group:m.phase?.toUpperCase()}</span>
+              <span style={{display:"inline-flex",alignItems:"center",gap:3,padding:"2px 8px",borderRadius:20,fontSize:"9px",background:st.bg,color:st.color}}>
+                {st.dot&&<span style={{width:4,height:4,borderRadius:"50%",background:st.color,display:"inline-block",animation:"pulse 1.5s infinite"}}/>}
+                {st.label}
+              </span>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr auto 1fr",gap:8,alignItems:"center"}}>
+              <div style={{textAlign:"right"}}>
+                <div style={{fontSize:size==="lg"?"15px":"13px",fontWeight:500}}>{m.home}</div>
+              </div>
+              <div style={{textAlign:"center",minWidth:50}}>
+                {m.homeScore!==null
+                  ? <div style={{display:"flex",gap:4,alignItems:"center",justifyContent:"center"}}>
+                      <span style={{fontSize:"20px",fontWeight:700,color:"var(--tx)"}}>{m.homeScore}</span>
+                      <span style={{fontSize:"12px",color:"var(--tx3)"}}>:</span>
+                      <span style={{fontSize:"20px",fontWeight:700,color:"var(--tx)"}}>{m.awayScore}</span>
+                    </div>
+                  : diff>0
+                    ? <div style={{fontSize:"12px",fontWeight:500,color:"var(--teal)"}}>{countdown(m.kickoff)}</div>
+                    : <div style={{fontSize:"13px",color:"var(--tx3)"}}>vs</div>
+                }
+              </div>
+              <div style={{textAlign:"left"}}>
+                <div style={{fontSize:size==="lg"?"15px":"13px",fontWeight:500}}>{m.away}</div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div style={{fontFamily:"var(--fd)",fontSize:"clamp(11px,3vw,14px)",color:"var(--teal)",letterSpacing:".18em",textTransform:"uppercase",marginBottom:6}}>La Doce · Social.Roof.Bar</div>
-        <div style={{fontFamily:"var(--fd)",fontSize:"clamp(24px,6vw,38px)",fontWeight:500,lineHeight:1.15,marginBottom:8}}>
+      );
+    };
+
+    return(
+    <div className="fade">
+      <div className="hero-bg" style={{textAlign:"center",padding:"2rem 1rem 1.5rem"}}>
+        <div style={{display:"flex",justifyContent:"center",marginBottom:12}}>
+          <LogoMark size={44}/>
+        </div>
+        <div style={{fontFamily:"var(--fd)",fontSize:"clamp(11px,3vw,13px)",color:"var(--teal)",letterSpacing:".18em",textTransform:"uppercase",marginBottom:4}}>La Doce · Social.Roof.Bar</div>
+        <div style={{fontFamily:"var(--fd)",fontSize:"clamp(22px,6vw,34px)",fontWeight:500,lineHeight:1.15,marginBottom:6}}>
           <span style={{color:"var(--tx)"}}>Quiniela </span>
           <span style={{color:"var(--sand)"}}>Mundial 2026</span>
         </div>
-        <div style={{fontSize:"12px",color:"var(--tx3)",letterSpacing:".04em"}}>{t.home.subtitle}</div>
+        <div style={{fontSize:"11px",color:"var(--tx3)",letterSpacing:".04em"}}>{t.home.subtitle}</div>
       </div>
 
-      <div style={{padding:"1.5rem 1rem"}}>
-        {/* Stats */}
-        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:7,marginBottom:"1.5rem"}}>
-          {[{l:t.home.participants,v:state.participants.length},{l:t.home.totalPot,v:mxn(totalPot)},{l:t.home.matchesLoaded,v:`${state.matches.filter(m=>m.homeScore!==null).length}/${state.matches.length}`}].map(({l,v})=>(
-            <div key={l} style={{background:"var(--bg3)",borderRadius:"var(--r)",padding:"13px 10px",textAlign:"center"}}>
-              <div style={{fontSize:"10px",color:"var(--tx3)",marginBottom:4,letterSpacing:".04em"}}>{l}</div>
-              <div style={{fontSize:"clamp(14px,3.5vw,18px)",fontWeight:500}}>{v}</div>
-            </div>
-          ))}
-        </div>
+      <div style={{padding:"1.2rem 1rem"}}>
 
-        {/* Pools */}
-        <div style={{fontSize:"10px",fontWeight:500,color:"var(--tx3)",marginBottom:9,letterSpacing:".1em",textTransform:"uppercase"}}>{t.home.poolsTitle}</div>
-        <div style={{display:"grid",gap:5,marginBottom:"1.5rem"}}>
-          {[...PHASES,{key:"torneo"}].map(({key})=>{
-            const pool=state.pools[key]; const n=state.participants.filter(p=>p.payments[key]).length; const pot=pots[key];
-            return(
-              <div key={key} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"11px 14px",background:"var(--bg2)",border:"0.5px solid var(--bdr2)",borderRadius:"var(--r)"}}>
-                <div>
-                  <div style={{fontSize:"13px",fontWeight:500}}>{t.phases[key]}</div>
-                  <div style={{fontSize:"10px",color:"var(--tx3)",marginTop:2}}>{n} {t.home.paid} × {mxn(pool.entryFee)}</div>
-                </div>
-                <div style={{textAlign:"right"}}>
-                  <div style={{fontSize:"15px",fontWeight:500,color:"var(--sand)"}}>{mxn(pot)}</div>
-                  <div style={{fontSize:"9px",color:"var(--tx3)"}}>{t.home.distLabel} {pool.distribution.join("/")}%</div>
-                </div>
+        {part&&(
+          <div style={{background:"linear-gradient(135deg,rgba(91,184,168,0.08),rgba(200,169,106,0.06))",border:"0.5px solid var(--bdr)",borderRadius:"var(--rl)",padding:"1rem 1.2rem",marginBottom:"1rem",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div>
+              <div style={{fontSize:"10px",color:"var(--tx3)",letterSpacing:".08em",textTransform:"uppercase",marginBottom:2}}>Bienvenido</div>
+              <div style={{fontFamily:"var(--fd)",fontSize:"20px",fontWeight:500,color:"var(--tx)"}}>{part.name}</div>
+            </div>
+            <div style={{display:"flex",gap:12}}>
+              <div style={{textAlign:"center"}}>
+                <div style={{fontSize:"22px",fontWeight:500,color:"var(--teal)"}}>{myPoints}</div>
+                <div style={{fontSize:"9px",color:"var(--tx3)"}}>pts</div>
               </div>
-            );
-          })}
-        </div>
-
-        {/* How it works */}
-        <div className="card card-teal">
-          <div style={{fontSize:"10px",fontWeight:500,color:"var(--teal)",marginBottom:12,letterSpacing:".1em",textTransform:"uppercase"}}>{t.home.howTitle}</div>
-          {[t.home.how1,t.home.how2,`${state.config.pointsExact} ${t.home.how3pts} ${state.config.pointsWinner} ${t.home.how3win}${state.config.knockoutMultiplier}.`,t.home.how4].map((txt,i)=>(
-            <div key={i} style={{display:"flex",gap:10,fontSize:"13px",color:"var(--tx2)",lineHeight:1.65,marginBottom:8}}>
-              <span style={{color:"var(--teal)",flexShrink:0,fontFamily:"var(--fd)",fontSize:"15px"}}>{i+1}.</span>
-              <span>{txt}</span>
+              {pendingPreds>0&&(
+                <div style={{textAlign:"center"}}>
+                  <div style={{fontSize:"22px",fontWeight:500,color:"var(--sand)"}}>{pendingPreds}</div>
+                  <div style={{fontSize:"9px",color:"var(--tx3)"}}>pendientes</div>
+                </div>
+              )}
             </div>
-          ))}
-        </div>
+          </div>
+        )}
 
-        {/* ForensicBit footer */}
+        {live.length>0&&(
+          <div style={{marginBottom:"1rem"}}>
+            <div style={{fontSize:"10px",fontWeight:500,color:"var(--amber)",marginBottom:8,letterSpacing:".08em",textTransform:"uppercase",display:"flex",alignItems:"center",gap:6}}>
+              <span style={{width:6,height:6,borderRadius:"50%",background:"var(--amber)",display:"inline-block",animation:"pulse 1.5s infinite"}}/>
+              En vivo ahora
+            </div>
+            {live.map(m=><MatchCard key={m.id} m={m} size="lg"/>)}
+          </div>
+        )}
+
+        {next2.length>0&&(
+          <div style={{marginBottom:"1rem"}}>
+            <div style={{fontSize:"10px",fontWeight:500,color:"var(--tx3)",marginBottom:8,letterSpacing:".08em",textTransform:"uppercase"}}>Proximos partidos</div>
+            {next2.map(m=><MatchCard key={m.id} m={m} size="lg"/>)}
+          </div>
+        )}
+
+        {next4.length>2&&(
+          <div style={{marginBottom:"1rem"}}>
+            <div style={{fontSize:"10px",fontWeight:500,color:"var(--tx3)",marginBottom:8,letterSpacing:".08em",textTransform:"uppercase"}}>Agenda</div>
+            {next4.slice(2).map(m=><MatchCard key={m.id} m={m} size="sm"/>)}
+          </div>
+        )}
+
+        {state.matches.some(m=>m.homeScore!==null)&&(
+          <div style={{marginBottom:"1rem"}}>
+            <div style={{fontSize:"10px",fontWeight:500,color:"var(--tx3)",marginBottom:8,letterSpacing:".08em",textTransform:"uppercase"}}>Clasificacion general</div>
+            <div style={{display:"grid",gap:3}}>
+              {(boards["torneo"]||[]).slice(0,10).map((row,idx)=>{
+                const cl=["var(--sand)","#B8B8B8","#A07040"][idx]||"var(--tx2)";
+                const isMe=row.id===urlParticipant;
+                return(
+                  <div key={row.id} style={{display:"grid",gridTemplateColumns:"26px 1fr auto auto",gap:8,alignItems:"center",padding:"8px 12px",background:isMe?"rgba(91,184,168,0.07)":idx<3?"rgba(200,169,106,0.04)":"var(--bg2)",border:`0.5px solid ${isMe?"var(--bdr)":idx<3?"var(--bdrS)":"var(--bdr2)"}`,borderRadius:"var(--r)"}}>
+                    <span style={{fontSize:"13px",fontWeight:500,color:cl}}>{idx+1}</span>
+                    <span style={{fontSize:"13px",fontWeight:isMe?500:400,color:isMe?"var(--teal)":"var(--tx)"}}>{row.name}{isMe?" (tu)":""}</span>
+                    <span style={{fontSize:"10px",color:"var(--tx3)"}}>{row.hits} ac.</span>
+                    <span style={{fontSize:"13px",fontWeight:500}}>{row.score}<span style={{fontSize:"9px",color:"var(--tx3)"}}> pts</span></span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <div style={{textAlign:"center",padding:"16px 10px 8px",borderTop:"0.5px solid rgba(91,184,168,0.08)",marginTop:"1rem"}}>
           <div style={{fontSize:"9px",color:"var(--tx3)",letterSpacing:".06em"}}>Desarrollado para La Doce · Social.Roof.Bar</div>
           <div style={{fontSize:"10px",color:"var(--teal)",fontWeight:500,letterSpacing:".04em",marginTop:"2px"}}>Powered by ForensicBit Solutions</div>
         </div>
+
       </div>
     </div>
-  );
-
+    );
+  };
+  
   // ── PREDICTIONS ───────────────────────────────────────────
   const Predictions=()=>{
     if(!pid) return(
