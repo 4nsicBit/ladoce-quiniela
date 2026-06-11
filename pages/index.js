@@ -699,7 +699,7 @@ function Leaderboard({state,phase,setPhase,isAdmin,pots,boards,shareWA,t}) {
 }
 
 function Admin({state,upd,isAdmin,setAdmin,pin,setPin,tryLogin,addP,removeP,
-  togglePay,updM,toggleLock,lockPhase,updPool,exportData,importData,
+  togglePay,updM,toggleLock,lockPhase,updPool,exportData,exportCSV,importData,
   pots,toast2,t,lang,PHASES,status,fmtD}) {
   const pinRef = useRef(null);
     if(!isAdmin) return(
@@ -874,6 +874,7 @@ function Admin({state,upd,isAdmin,setAdmin,pin,setPin,tryLogin,addP,removeP,
           <div style={{fontSize:"10px",fontWeight:500,color:"var(--tx3)",letterSpacing:".1em",textTransform:"uppercase",marginBottom:11}}>{t.admin.dataTitle}</div>
           <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
             <button onClick={exportData}><Download size={12}/> {t.admin.export}</button>
+            <button onClick={exportCSV}><Download size={12}/> CSV Participantes</button>
             <label style={{display:"inline-flex",alignItems:"center",gap:5,padding:"8px 14px",border:"0.5px solid var(--bdr2)",borderRadius:"var(--r)",cursor:"pointer",fontSize:"13px",color:"var(--tx2)"}}>
               <Upload size={12}/> {t.admin.importBtn}
               <input type="file" accept=".json" onChange={importData} style={{display:"none"}}/>
@@ -1200,6 +1201,20 @@ export default function App() {
     a.download=`ladoce-quiniela-${new Date().toISOString().split("T")[0]}.json`; a.click();
     toast2("✓ Backup descargado");
   };
+  const exportCSV=()=>{
+    const phases=[...PHASES.map(p=>p.key),"torneo"];
+    const headers=["Nombre","NIP","Link",...phases.map(k=>k.charAt(0).toUpperCase()+k.slice(1))];
+    const rows=state.participants.map(p=>{
+      const link=`${window.location.origin}/p/${p.id}`;
+      const payments=phases.map(k=>p.payments[k]?"Si":"No");
+      return[p.name,p.nip||"",link,...payments];
+    });
+    const csv=[headers,...rows].map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
+    const blob=new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8;"});
+    const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+    a.download=`participantes-${new Date().toISOString().split("T")[0]}.csv`; a.click();
+    toast2("✓ CSV descargado");
+  };
   const importData=(e)=>{ const f=e.target.files?.[0]; if(!f) return; const r=new FileReader(); r.onload=ev=>{ try{setState(JSON.parse(ev.target.result));toast2("✓ Importado");}catch{toast2("⚠ Inválido");} }; r.readAsText(f); };
 
   // Leaderboard con tiebreaker 3 niveles
@@ -1315,7 +1330,7 @@ export default function App() {
             pin={pin} setPin={setPin} tryLogin={tryLogin}
             addP={addP} removeP={removeP} togglePay={togglePay}
             updM={updM} toggleLock={toggleLock} lockPhase={lockPhase}
-            updPool={updPool} exportData={exportData} importData={importData}
+            updPool={updPool} exportData={exportData} exportCSV={exportCSV} importData={importData}
             pots={pots} toast2={toast2} t={t} lang={lang}
             PHASES={PHASES} status={status} fmtD={fmtD}
           />}
