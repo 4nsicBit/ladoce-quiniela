@@ -49,18 +49,28 @@ export default function ParticipantAccess() {
     fetchParticipant()
   }, [id])
 
-  const handleAccess = () => {
-    if (!participant) { setError("Cargando, intenta de nuevo."); return }
+  const handleAccess = async () => {
     if (nip.length !== 4) { setError("El NIP debe ser de 4 digitos"); return }
     setChecking(true)
-    const nipCorrecto = participant.nip || "1234"
-    if (nip === nipCorrecto) {
-      localStorage.setItem("ld-participant-id", id)
-      localStorage.setItem("ld-participant-name", participant.name)
-      localStorage.setItem("ld-session-ts", Date.now().toString())
-      router.push("/?participant=" + id)
-    } else {
-      setError("NIP incorrecto. Intenta de nuevo.")
+    try {
+      const res = await fetch("/api/validate-nip", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ participantId: id, nip })
+      })
+      const data = await res.json()
+      if (res.ok && data.ok) {
+        localStorage.setItem("ld-participant-id", id)
+        localStorage.setItem("ld-participant-name", data.name)
+        localStorage.setItem("ld-session-ts", Date.now().toString())
+        router.push("/?participant=" + id)
+      } else {
+        setError(data.error || "NIP incorrecto. Intenta de nuevo.")
+        setNip("")
+        setChecking(false)
+      }
+    } catch(e) {
+      setError("Error de conexion. Intenta de nuevo.")
       setNip("")
       setChecking(false)
     }

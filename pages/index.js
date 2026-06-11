@@ -261,6 +261,50 @@ td:first-child{text-align:left;font-size:13px}
 `;
 
 // ── APP ───────────────────────────────────────────────────────
+function SessionTimer({ participantId }) {
+  const [remaining, setRemaining] = useState(600);
+
+  useEffect(()=>{
+    const tick = ()=>{
+      const ts = parseInt(localStorage.getItem("ld-session-ts") || "0");
+      const elapsed = Math.floor((Date.now() - ts) / 1000);
+      const left = Math.max(0, 600 - elapsed);
+      setRemaining(left);
+      if(left === 0){
+        localStorage.removeItem("ld-participant-id");
+        localStorage.removeItem("ld-participant-name");
+        localStorage.removeItem("ld-session-ts");
+        window.location.href = "/p/" + participantId;
+      }
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
+    const renovar = ()=> localStorage.setItem("ld-session-ts", Date.now().toString());
+    window.addEventListener("click", renovar);
+    window.addEventListener("keydown", renovar);
+    return ()=>{
+      clearInterval(interval);
+      window.removeEventListener("click", renovar);
+      window.removeEventListener("keydown", renovar);
+    };
+  },[participantId]);
+
+  const urgent = remaining < 120;
+  return(
+    <div style={{
+      display:"flex",alignItems:"center",gap:4,
+      padding:"4px 10px",borderRadius:20,
+      background:urgent?"rgba(217,95,95,0.15)":"rgba(91,184,168,0.1)",
+      border:`0.5px solid ${urgent?"var(--red)":"rgba(91,184,168,0.3)"}`,
+      fontSize:"11px",
+      color:urgent?"var(--red)":"var(--teal)",
+    }}>
+      <span style={{opacity:0.7}}>{urgent?"Sesion expira:":"Sesion:"}</span>
+      <span style={{fontWeight:500}}>{Math.floor(remaining/60)}:{String(remaining%60).padStart(2,"0")}</span>
+    </div>
+  );
+}
+
 export default function App() {
   const [state,setState]   = useState(DEFAULT);
   const [ready,setReady]   = useState(false);
@@ -271,6 +315,7 @@ export default function App() {
   const pinRef = useRef(null);
   const router = useRouter();
   const urlParticipant = router.query.participant || null;
+  // Timer de sesion movido a componente separado para evitar re-renders
   const [pid,setPid]       = useState(null);
   const [phase,setPhase]   = useState("grupos");
   const [toast,setToast]   = useState(null);
@@ -413,6 +458,7 @@ export default function App() {
         </div>
         {/* Controls */}
         <div style={{display:"flex",gap:6,alignItems:"center"}}>
+          {urlParticipant&&<SessionTimer participantId={urlParticipant}/>}
           <button className="ghost" onClick={()=>setLang(l=>l==="es"?"en":"es")} style={{padding:"4px 10px",fontSize:"11px",borderRadius:20}}>
             <Globe size={11}/> {lang==="es"?"EN":"ES"}
           </button>
@@ -497,10 +543,17 @@ export default function App() {
           <div style={{position:"relative"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
               <span style={{fontSize:"9px",color:"var(--tx3)"}}>{m.group?"Grupo "+m.group:m.phase?.toUpperCase()}</span>
-              <span style={{display:"inline-flex",alignItems:"center",gap:3,padding:"2px 8px",borderRadius:20,fontSize:"9px",background:st.bg,color:st.color}}>
-                {st.dot&&<span style={{width:4,height:4,borderRadius:"50%",background:st.color,display:"inline-block",animation:"pulse 1.5s infinite"}}/>}
-                {st.label}
-              </span>
+              <div style={{display:"flex",gap:4,alignItems:"center"}}>
+                {diff>0&&diff<3600000&&(
+                  <span style={{display:"inline-flex",alignItems:"center",gap:3,padding:"2px 8px",borderRadius:20,fontSize:"9px",background:"rgba(217,95,95,0.15)",color:"var(--red)",fontWeight:500}}>
+                    Cierra pronto
+                  </span>
+                )}
+                <span style={{display:"inline-flex",alignItems:"center",gap:3,padding:"2px 8px",borderRadius:20,fontSize:"9px",background:st.bg,color:st.color}}>
+                  {st.dot&&<span style={{width:4,height:4,borderRadius:"50%",background:st.color,display:"inline-block",animation:"pulse 1.5s infinite"}}/>}
+                  {st.label}
+                </span>
+              </div>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr auto 1fr",gap:8,alignItems:"center"}}>
               <div style={{textAlign:"right"}}>
@@ -604,6 +657,42 @@ export default function App() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        )}
+
+        {urlParticipant&&state.matches.some(m=>m.homeScore!==null)&&(
+          <div style={{marginBottom:"1rem"}}>
+            <div style={{fontSize:"10px",fontWeight:500,color:"var(--tx3)",marginBottom:8,letterSpacing:".08em",textTransform:"uppercase"}}>Mis pronosticos vs resultado</div>
+            <div style={{display:"grid",gap:4}}>
+              {state.matches
+                .filter(m=>m.homeScore!==null&&m.home&&m.away)
+                .sort((a,b)=>new Date(b.kickoff)-new Date(a.kickoff))
+                .slice(0,10)
+                .map(m=>{
+                  const pred=(state.predictions[urlParticipant]||{})[m.id];
+                  const myPts=pred?pts(pred,m,state.config):0;
+                  const correct=myPts>=state.config.pointsExact*(m.phase==="grupos"?1:state.config.knockoutMultiplier);
+                  const partial=myPts>0&&!correct;
+                  const bg=correct?"rgba(82,196,138,0.06)":partial?"rgba(245,158,11,0.06)":"rgba(217,95,95,0.04)";
+                  const borderC=correct?"var(--green)":partial?"var(--amber)":"rgba(217,95,95,0.3)";
+                  return(
+                    <div key={m.id} style={{display:"grid",gridTemplateColumns:"1fr auto auto",gap:8,alignItems:"center",padding:"9px 12px",background:bg,border:`0.5px solid ${borderC}`,borderRadius:"var(--r)"}}>
+                      <div>
+                        <div style={{fontSize:"12px",fontWeight:500}}>{m.home} vs {m.away}</div>
+                        <div style={{fontSize:"10px",color:"var(--tx3)",marginTop:2}}>
+                          Real: <span style={{color:"var(--tx)",fontWeight:500}}>{m.homeScore}-{m.awayScore}</span>
+                          {pred&&<span> · Tu: <span style={{color:"var(--tx)",fontWeight:500}}>{pred.home}-{pred.away}</span></span>}
+                          {!pred&&<span style={{color:"var(--tx3)"}}> · Sin pronostico</span>}
+                        </div>
+                      </div>
+                      <div style={{fontSize:"13px",fontWeight:500,color:correct?"var(--green)":partial?"var(--amber)":"var(--red)",textAlign:"right"}}>
+                        {myPts>0?"+"+myPts:"0"}<span style={{fontSize:"9px"}}> pts</span>
+                      </div>
+                    </div>
+                  );
+                })
+              }
             </div>
           </div>
         )}
