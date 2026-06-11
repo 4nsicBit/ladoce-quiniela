@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabaseClient'
-import { useState, useEffect, useMemo, useRef } from "react"
+import { useState, useEffect, useMemo, useRef, useCallback } from "react"
 import { useRouter } from "next/router";
 import { Lock, Unlock, Download, Upload, Trash2, Edit3, Award, Globe, Share2, Menu, X, Zap, Plus, Settings, Trophy } from "lucide-react";
 
@@ -261,6 +261,105 @@ td:first-child{text-align:left;font-size:13px}
 `;
 
 // ── APP ───────────────────────────────────────────────────────
+function PredInput({ matchId, field, initialValue, disabled, onSave }) {
+  const [val, setVal] = useState(initialValue || "");
+  const timerRef = useRef(null);
+
+  // Sincronizar si el valor externo cambia y el input no tiene foco
+  const inputRef = useRef(null);
+  useEffect(()=>{
+    if(inputRef.current && document.activeElement === inputRef.current) return;
+    if(initialValue !== undefined && initialValue !== null && initialValue !== "")
+      setVal(String(initialValue));
+  },[initialValue]);
+
+  const handleChange = (e) => {
+    const v = e.target.value;
+    setVal(v);
+    // Guardar 800ms despues de parar de escribir
+    if(timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(()=> onSave(v), 800);
+  };
+
+  const handleBlur = (e) => {
+    if(timerRef.current) clearTimeout(timerRef.current);
+    onSave(e.target.value);
+  };
+
+  return(
+    <input
+      ref={inputRef}
+      type="number" min="0" max="20"
+      className="si"
+      value={val}
+      disabled={disabled}
+      onChange={handleChange}
+      onBlur={handleBlur}
+      style={{width:38}}
+    />
+  );
+}
+
+function Predictions({ pid, setPid, phase, setPhase, participants, predictions, matches, config, setPred, urlParticipant, t, lang }) {
+  if(!pid) return(
+    <div className="fade" style={{padding:"1.5rem 1rem"}}>
+      <div style={{fontFamily:"var(--fd)",fontSize:"24px",fontWeight:500,marginBottom:6}}>{t.pred.whoAreYou}</div>
+      <div style={{fontSize:"13px",color:"var(--tx3)",marginBottom:"1.5rem"}}>{t.pred.selectName}</div>
+      {participants.length===0
+        ? <div style={{color:"var(--tx3)",fontSize:"13px"}}>{t.pred.noParticipants}</div>
+        : <div style={{display:"grid",gap:6}}>{participants.map(p=>(
+            <button key={p.id} onClick={()=>setPid(p.id)} style={{padding:"13px 16px",justifyContent:"flex-start",fontSize:"15px",color:"var(--tx)",fontFamily:"var(--fd)",letterSpacing:".02em"}}>{p.name}</button>
+          ))}</div>
+      }
+    </div>
+  );
+  const part = participants.find(p=>p.id===pid);
+  const up = predictions[pid]||{};
+  const ms = matches.filter(m=>m.phase===phase).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff));
+  return(
+    <div className="fade">
+      <div style={{padding:"1rem 1rem 0",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+        <div>
+          <div style={{fontFamily:"var(--fd)",fontSize:"19px",fontWeight:500}}>{part?.name}</div>
+          <div style={{fontSize:"11px",color:"var(--tx3)"}}>Mundial 2026</div>
+        </div>
+        {!urlParticipant&&<button className="ghost" onClick={()=>setPid(null)}>{t.pred.change}</button>}
+      </div>
+      <div style={{display:"flex",gap:5,overflowX:"auto",padding:"0 1rem .9rem",scrollbarWidth:"none"}}>
+        {PHASES.map(({key})=>(
+          <button key={key} onClick={()=>setPhase(key)} className={`ptab${phase===key?" on":""}`}>
+            {t.phases[key]} {part?.payments[key]?"✓":""}
+          </button>
+        ))}
+      </div>
+      {!part?.payments[phase]&&(
+        <div style={{margin:"0 1rem .9rem",padding:"9px 13px",background:"var(--amber-d)",borderRadius:"var(--r)",fontSize:"12px",color:"var(--amber)"}}>{t.pred.notPaid}</div>
+      )}
+      <div style={{padding:"0 1rem 1.5rem",display:"grid",gap:4}}>
+        {ms.map(m=>{
+          const pr=up[m.id]||{home:"",away:""};
+          return(
+            <div key={m.id} className={`mrow${m.locked?" lk":""}`}>
+              <div>
+                <div style={{fontSize:"9px",color:"var(--tx3)"}}>{m.group?`G-${m.group}`:m.id}</div>
+                <div style={{fontSize:"9px",color:"var(--tx3)",marginTop:2}}>{fmtD(m.kickoff,lang)}</div>
+              </div>
+              <div style={{fontSize:"12px",textAlign:"right"}}>{m.home||"—"}</div>
+              <div style={{display:"flex",gap:3,alignItems:"center",justifyContent:"center"}}>
+                <PredInput matchId={m.id} field="home" initialValue={pr.home} disabled={m.locked||!m.home} onSave={v=>setPred(pid,m.id,"home",v)}/>
+                <span style={{color:"var(--tx3)",fontSize:"11px"}}>–</span>
+                <PredInput matchId={m.id} field="away" initialValue={pr.away} disabled={m.locked||!m.away} onSave={v=>setPred(pid,m.id,"away",v)}/>
+              </div>
+              <div style={{fontSize:"12px"}}>{m.away||"—"}</div>
+              <div>{m.locked?<Lock size={11} style={{color:"var(--teal)",opacity:.7}}/>:<Unlock size={11} style={{color:"var(--tx3)",opacity:.2}}/>}</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function SessionTimer({ participantId }) {
   const [remaining, setRemaining] = useState(()=>{
     if(typeof window === "undefined") return 600;
@@ -342,7 +441,13 @@ export default function App() {
     if(!ready || !urlParticipant) return;
     const interval = setInterval(async ()=>{
       const fresh = await load();
-      if(fresh) setState(fresh);
+      if(fresh) setState(prev=>({...prev,
+        // Solo actualizar partidos y resultados, no predicciones ni config
+        // para evitar perder el foco en inputs mientras el usuario escribe
+        matches: fresh.matches,
+        participants: fresh.participants,
+        pools: fresh.pools,
+      }));
     }, 30000);
     return ()=> clearInterval(interval);
   },[ready, urlParticipant]);
@@ -713,66 +818,7 @@ export default function App() {
   };
   
   // ── PREDICTIONS ───────────────────────────────────────────
-  const Predictions=()=>{
-    if(!pid) return(
-      <div className="fade" style={{padding:"1.5rem 1rem"}}>
-        <div style={{fontFamily:"var(--fd)",fontSize:"24px",fontWeight:500,marginBottom:6}}>{t.pred.whoAreYou}</div>
-        <div style={{fontSize:"13px",color:"var(--tx3)",marginBottom:"1.5rem"}}>{t.pred.selectName}</div>
-        {state.participants.length===0
-          ? <div style={{color:"var(--tx3)",fontSize:"13px"}}>{t.pred.noParticipants}</div>
-          : <div style={{display:"grid",gap:6}}>{state.participants.map(p=>(
-              <button key={p.id} onClick={()=>setPid(p.id)} style={{padding:"13px 16px",justifyContent:"flex-start",fontSize:"15px",color:"var(--tx)",fontFamily:"var(--fd)",letterSpacing:".02em"}}>{p.name}</button>
-            ))}</div>
-        }
-      </div>
-    );
-    const part=state.participants.find(p=>p.id===pid);
-    const up=state.predictions[pid]||{};
-    const ms=state.matches.filter(m=>m.phase===phase).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff));
-    return(
-      <div className="fade">
-        <div style={{padding:"1rem 1rem 0",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-          <div>
-            <div style={{fontFamily:"var(--fd)",fontSize:"19px",fontWeight:500}}>{part?.name}</div>
-            <div style={{fontSize:"11px",color:"var(--tx3)"}}>Mundial 2026</div>
-          </div>
-          {!urlParticipant && <button className="ghost" onClick={()=>setPid(null)}>{t.pred.change}</button>}
-        </div>
-        {/* Phase tabs */}
-        <div style={{display:"flex",gap:5,overflowX:"auto",padding:"0 1rem .9rem",scrollbarWidth:"none"}}>
-          {PHASES.map(({key})=>(
-            <button key={key} onClick={()=>setPhase(key)} className={`ptab${phase===key?" on":""}`}>
-              {t.phases[key]} {part?.payments[key]?"✓":""}
-            </button>
-          ))}
-        </div>
-        {!part?.payments[phase]&&(
-          <div style={{margin:"0 1rem .9rem",padding:"9px 13px",background:"var(--amber-d)",borderRadius:"var(--r)",fontSize:"12px",color:"var(--amber)"}}>{t.pred.notPaid}</div>
-        )}
-        <div style={{padding:"0 1rem 1.5rem",display:"grid",gap:4}}>
-          {ms.map(m=>{
-            const pr=up[m.id]||{home:"",away:""};
-            return(
-              <div key={m.id} className={`mrow${m.locked?" lk":""}`}>
-                <div>
-                  <div style={{fontSize:"9px",color:"var(--tx3)"}}>{m.group?`G-${m.group}`:m.id}</div>
-                  <div style={{fontSize:"9px",color:"var(--tx3)",marginTop:2}}>{fmtD(m.kickoff,lang)}</div>
-                </div>
-                <div style={{fontSize:"12px",textAlign:"right"}}>{m.home||"—"}</div>
-                <div style={{display:"flex",gap:3,alignItems:"center",justifyContent:"center"}}>
-                  <input type="number" min="0" max="20" className="si" key={`ph-${m.id}`} defaultValue={pr.home} disabled={m.locked||!m.home} onBlur={e=>setPred(pid,m.id,"home",e.target.value)} style={{width:38}}/>
-                  <span style={{color:"var(--tx3)",fontSize:"11px"}}>–</span>
-                  <input type="number" min="0" max="20" className="si" key={`pa-${m.id}`} defaultValue={pr.away} disabled={m.locked||!m.away} onBlur={e=>setPred(pid,m.id,"away",e.target.value)} style={{width:38}}/>
-                </div>
-                <div style={{fontSize:"12px"}}>{m.away||"—"}</div>
-                <div>{m.locked?<Lock size={11} style={{color:"var(--teal)",opacity:.7}}/>:<Unlock size={11} style={{color:"var(--tx3)",opacity:.2}}/>}</div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
-  };
+  // Componente externo - ver funcion Predictions() antes de App()
 
   // ── RESULTS ───────────────────────────────────────────────
   const Results=()=>{
@@ -1072,7 +1118,17 @@ export default function App() {
       <Header/>
       <main style={{maxWidth:700,margin:"0 auto"}}>
         {view==="home"        && <Home/>}
-        {view==="predictions" && <Predictions/>}
+        {view==="predictions" && <Predictions
+            pid={pid} setPid={setPid}
+            phase={phase} setPhase={setPhase}
+            participants={state.participants}
+            predictions={state.predictions}
+            matches={state.matches}
+            config={state.config}
+            setPred={setPred}
+            urlParticipant={urlParticipant}
+            t={t} lang={lang}
+          />}
         {view==="results"     && <Results/>}
         {view==="leaderboard" && <Leaderboard/>}
         {view==="admin"       && <Admin/>}
