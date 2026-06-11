@@ -748,7 +748,8 @@ export default function App() {
           ))}
         </div>
 
-        {/* Pot card */}
+        {/* Pot card - solo admin */}
+        {isAdmin&&(
         <div className="card card-sand" style={{marginBottom:"1rem"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
             <div>
@@ -766,6 +767,7 @@ export default function App() {
             ))}
           </div>
         </div>
+        )}
 
         {board.length===0
           ?<div style={{color:"var(--tx3)",fontSize:"13px"}}>{t.lb.noPaid}</div>
@@ -779,7 +781,7 @@ export default function App() {
                   <span style={{fontSize:"14px",fontWeight:idx===0?500:400,fontFamily:idx<3?"var(--fd)":"var(--fb)"}}>{row.name}</span>
                   <span style={{fontSize:"10px",color:"var(--tx3)"}}>{row.hits} {t.lb.hits}</span>
                   <span style={{fontSize:"14px",fontWeight:500}}>{row.score} <span style={{fontSize:"10px",color:"var(--tx3)"}}>{t.lb.pts}</span></span>
-                  {prize?<span style={{fontSize:"12px",color:"var(--sand)",fontWeight:500,textAlign:"right"}}>{prize}</span>:<span/>}
+                  {isAdmin&&prize?<span style={{fontSize:"12px",color:"var(--sand)",fontWeight:500,textAlign:"right"}}>{prize}</span>:<span/>}
                 </div>
               );
             })}
@@ -903,6 +905,47 @@ export default function App() {
                 <input type={tp} value={state.config[f]} onChange={e=>upd(s=>({...s,config:{...s.config,[f]:tp==="number"?(parseFloat(e.target.value)||0):e.target.value}}))}/>
               </div>
             ))}
+          </div>
+        </section>
+
+        {/* Bloqueo de partidos */}
+        <section style={{marginBottom:"2rem"}}>
+          <div style={{fontSize:"10px",fontWeight:500,color:"var(--tx3)",letterSpacing:".1em",textTransform:"uppercase",marginBottom:11}}>
+            Cerrar pronosticos por partido
+          </div>
+          <div style={{display:"grid",gap:5}}>
+            {state.matches
+              .filter(m=>m.home&&m.away)
+              .sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff))
+              .slice(0,20)
+              .map(m=>{
+                const st=status(m.kickoff);
+                const stColor=st==="live"?"var(--amber)":st==="finished"?"var(--green)":"var(--tx3)";
+                const stLabel=st==="live"?"En vivo":st==="finished"?"Terminado":"Pendiente";
+                return(
+                  <div key={m.id} style={{display:"grid",gridTemplateColumns:"1fr auto auto",gap:8,alignItems:"center",padding:"9px 12px",background:m.locked?"rgba(91,184,168,0.05)":"var(--bg2)",border:`0.5px solid ${m.locked?"var(--bdr)":"var(--bdr2)"}`,borderRadius:"var(--r)"}}>
+                    <div>
+                      <div style={{fontSize:"12px",fontWeight:500,color:"var(--tx)"}}>{m.home} vs {m.away}</div>
+                      <div style={{fontSize:"9px",color:"var(--tx3)",marginTop:2}}>{fmtD(m.kickoff,lang)} · <span style={{color:stColor}}>{stLabel}</span></div>
+                    </div>
+                    <div style={{fontSize:"10px",color:m.locked?"var(--teal)":"var(--tx3)",fontWeight:m.locked?500:400}}>
+                      {m.locked?"Cerrado":"Abierto"}
+                    </div>
+                    <button
+                      onClick={()=>toggleLock(m.id)}
+                      style={{
+                        padding:"5px 10px",fontSize:"11px",
+                        background:m.locked?"transparent":"rgba(217,95,95,0.1)",
+                        borderColor:m.locked?"var(--bdr)":"var(--red)",
+                        color:m.locked?"var(--teal)":"var(--red)",
+                      }}
+                    >
+                      {m.locked?<><Unlock size={11}/> Abrir</>:<><Lock size={11}/> Cerrar</>}
+                    </button>
+                  </div>
+                );
+              })
+            }
           </div>
         </section>
 
