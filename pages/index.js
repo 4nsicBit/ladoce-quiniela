@@ -678,10 +678,11 @@ export default function App() {
               <table>
                 <thead><tr>
                   <th>Nombre</th>
+                  {PHASES.map(p=><th key={p.key}>{t.phases[p.key].split(" ")[0]}</th>)}
+                  <th>Torneo</th>
                   <th>NIP</th>
                   <th>Link</th>
-                  {PHASES.map(p=><th key={p.key}>{t.phases[p.key].split(" ")[0]}</th>)}
-                  <th>Torneo</th><th></th>
+                  <th></th>
                 </tr></thead>
                 <tbody>{state.participants.map(p=>(
                   <tr key={p.id}>
