@@ -262,7 +262,12 @@ td:first-child{text-align:left;font-size:13px}
 
 // ── APP ───────────────────────────────────────────────────────
 function SessionTimer({ participantId }) {
-  const [remaining, setRemaining] = useState(600);
+  const [remaining, setRemaining] = useState(()=>{
+    if(typeof window === "undefined") return 600;
+    const ts = parseInt(localStorage.getItem("ld-session-ts") || "0");
+    const elapsed = Math.floor((Date.now() - ts) / 1000);
+    return Math.max(0, 600 - elapsed);
+  });
 
   useEffect(()=>{
     const tick = ()=>{
