@@ -682,7 +682,7 @@ function Leaderboard({state,phase,setPhase,isAdmin,pots,boards,shareWA,t}) {
               const cl=["r1","r2","r3"][idx]||"";
               // prizes se usa directamente
               return(
-                <div key={row.id} style={{display:"grid",gridTemplateColumns:"30px 1fr auto auto auto",gap:10,alignItems:"center",padding:"11px 14px",background:idx<dist.length?"rgba(200,169,106,0.05)":"var(--bg2)",border:`0.5px solid ${idx<dist.length?"var(--bdrS)":"var(--bdr2)"}`,borderRadius:"var(--r)"}}>
+                <div key={row.id} style={{display:"grid",gridTemplateColumns:"30px 1fr auto auto auto",gap:10,alignItems:"center",padding:"11px 14px",background:idx<prizes.filter(p=>p>0).length?"rgba(200,169,106,0.05)":"var(--bg2)",border:`0.5px solid ${idx<prizes.filter(p=>p>0).length?"var(--bdrS)":"var(--bdr2)"}`,borderRadius:"var(--r)"}}>
                   <span className={cl} style={{fontSize:"14px",fontWeight:500}}>{idx+1}</span>
                   <span style={{fontSize:"14px",fontWeight:idx===0?500:400,fontFamily:idx<3?"var(--fd)":"var(--fb)"}}>{row.name}</span>
                   <span style={{fontSize:"10px",color:"var(--tx3)"}}>{row.hits} {t.lb.hits}</span>
