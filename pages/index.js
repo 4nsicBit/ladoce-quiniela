@@ -436,11 +436,11 @@ function Home({state,urlParticipant,pots,totalPot,boards,t,lang}) {
                 <div style={{fontSize:size==="lg"?"15px":"13px",fontWeight:500}}>{m.home}</div>
               </div>
               <div style={{textAlign:"center",minWidth:50}}>
-                {m.homeScore!==null
+                {(m.homeScore!==null||diff<=0)
                   ? <div style={{display:"flex",gap:4,alignItems:"center",justifyContent:"center"}}>
-                      <span style={{fontSize:"20px",fontWeight:700,color:"var(--tx)"}}>{m.homeScore}</span>
+                      <span style={{fontSize:"20px",fontWeight:700,color:"var(--tx)"}}>{m.homeScore??0}</span>
                       <span style={{fontSize:"12px",color:"var(--tx3)"}}>:</span>
-                      <span style={{fontSize:"20px",fontWeight:700,color:"var(--tx)"}}>{m.awayScore}</span>
+                      <span style={{fontSize:"20px",fontWeight:700,color:"var(--tx)"}}>{m.awayScore??0}</span>
                     </div>
                   : diff>0
                     ? <div style={{fontSize:"12px",fontWeight:500,color:"var(--teal)"}}>{countdown(m.kickoff)}</div>

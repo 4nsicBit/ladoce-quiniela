@@ -117,14 +117,15 @@ export default async function handler(req, res) {
 
       if (!fixture) return match
 
-      const homeScore = fixture.goals.home
-      const awayScore = fixture.goals.away
+      // Si la API devuelve null para goles en partido en vivo, inicializar en 0
+      const homeScore = fixture.goals.home ?? 0
+      const awayScore = fixture.goals.away ?? 0
 
       // Solo actualizar si el marcador cambió
       if (homeScore === match.homeScore && awayScore === match.awayScore) return match
 
       updated++
-      return { ...match, homeScore: homeScore ?? match.homeScore, awayScore: awayScore ?? match.awayScore }
+      return { ...match, homeScore, awayScore }
     })
 
     if (updated > 0) {
