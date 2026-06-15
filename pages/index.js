@@ -359,6 +359,7 @@ td:first-child{text-align:left;font-size:13px}
 function Home({state,urlParticipant,pots,totalPot,boards,t,lang}) {
     const now = Date.now();
     const part = urlParticipant ? state.participants.find(p=>p.id===urlParticipant) : null;
+    const generalKey=[...PHASES.map(p=>p.key),"torneo"].reduce((best,k)=>(boards[k]||[]).length>(boards[best]||[]).length?k:best,"grupos");
 
     const upcoming = state.matches
       .filter(m=>m.home&&m.away&&new Date(m.kickoff).getTime()>now-7200000)
@@ -520,7 +521,7 @@ function Home({state,urlParticipant,pots,totalPot,boards,t,lang}) {
           <div style={{marginBottom:"1rem"}}>
             <div style={{fontSize:"10px",fontWeight:500,color:"var(--tx3)",marginBottom:8,letterSpacing:".08em",textTransform:"uppercase"}}>Clasificacion general</div>
             <div style={{display:"grid",gap:3}}>
-              {(boards["torneo"]||[]).slice(0,10).map((row,idx)=>{
+              {(boards[generalKey]||[]).slice(0,10).map((row,idx)=>{
                 const cl=["var(--sand)","#B8B8B8","#A07040"][idx]||"var(--tx2)";
                 const isMe=row.id===urlParticipant;
                 return(
