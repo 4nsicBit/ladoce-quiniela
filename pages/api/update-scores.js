@@ -74,13 +74,15 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Obtener fixtures en vivo del Mundial 2026
+    // Obtener todos los fixtures en vivo (sin filtro de liga para evitar ID incorrecto)
     const apiRes = await fetch(
-      'https://v3.football.api-sports.io/fixtures?live=all&league=1&season=2026',
+      'https://v3.football.api-sports.io/fixtures?live=all',
       { headers: { 'x-apisports-key': process.env.API_FOOTBALL_KEY } }
     )
     const apiData = await apiRes.json()
     const liveFixtures = apiData.response || []
+
+    console.log(`[update-scores] fixtures en vivo: ${liveFixtures.length}`, liveFixtures.map(f=>`${f.teams.home.name} vs ${f.teams.away.name}`))
 
     if (liveFixtures.length === 0) {
       return res.status(200).json({ ok: true, updated: 0, live: 0 })
