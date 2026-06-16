@@ -219,9 +219,9 @@ const load=async()=>{
     return data?data.value:null;
   }catch{ return null; }
 };
-const save=async(s)=>{
+const save=async(s,auth)=>{
   try{
-    await supabase.from('config').upsert({key:SK,value:s},{onConflict:'key'});
+    await fetch('/api/save-state',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({state:s,...auth})});
   }catch{}
 };
 const mxn=(n)=>new Intl.NumberFormat("es-MX",{style:"currency",currency:"MXN",minimumFractionDigits:0}).format(Math.round(n||0));
@@ -1069,6 +1069,7 @@ export default function App() {
   const [isAdmin,setAdmin] = useState(false);
   const [pin,setPin]       = useState("");
   const pinRef = useRef(null);
+  const adminPinRef = useRef(null);
   const router = useRouter();
   const urlParticipant = router.query.participant || null;
   // Timer de sesion movido a componente separado para evitar re-renders
@@ -1086,7 +1087,15 @@ export default function App() {
   },[]);
 
   // Persist
-  useEffect(()=>{ if(ready) save(state); },[state,ready]);
+  useEffect(()=>{
+    if(!ready) return;
+    if(isAdmin&&adminPinRef.current){
+      save(state,{adminPin:adminPinRef.current});
+    }else if(pid){
+      const participant=state.participants?.find(p=>p.id===pid);
+      save(state,{participantId:pid,nip:participant?.nip||'1234'});
+    }
+  },[state,ready]);
 
   // Polling: recargar estado desde Supabase cada 30s para participantes
   useEffect(()=>{
@@ -1184,7 +1193,7 @@ export default function App() {
 
   // Admin
   const tryLogin=(val)=>{
-  if(val===state.config.adminPin){setAdmin(true);setPin("");toast2("✓ Bienvenido admin");}
+  if(val===state.config.adminPin){adminPinRef.current=val;setAdmin(true);setPin("");toast2("✓ Bienvenido admin");}
   else toast2(t.admin.wrong);
 };
   const addP=(name,nip)=>{ if(!name.trim()) return; upd(s=>({...s,participants:[...s.participants,{id:`p${Date.now()}`,name:name.trim(),payments:{},nip:nip||"1234"}]})); };
