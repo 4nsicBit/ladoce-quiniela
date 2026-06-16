@@ -266,7 +266,7 @@ const CSS = `
   --sand:#C8A96A;--sand-l:#E0C98A;--sand-d:rgba(200,169,106,0.12);--sand-b:rgba(200,169,106,0.22);
   --bg:#09090C;--bg2:#101014;--bg3:#16161B;--bg4:#1E1E25;
   --bdr:rgba(91,184,168,0.18);--bdr2:rgba(255,255,255,0.07);--bdrS:rgba(200,169,106,0.2);
-  --tx:#EDE9E0;--tx2:#8A8680;--tx3:#4E4B47;
+  --tx:#EDE9E0;--tx2:#A09C98;--tx3:#6A6762;
   --green:#52C48A;--green-d:rgba(82,196,138,0.12);
   --amber:#E8A230;--amber-d:rgba(232,162,48,0.12);
   --red:#D95F5F;--red-d:rgba(217,95,95,0.1);
@@ -414,12 +414,12 @@ function Home({state,urlParticipant,pots,totalPot,boards,t,lang}) {
       return(
         <div style={{position:"relative",overflow:"hidden",padding:size==="lg"?"14px":"10px 12px",background:urgent?"rgba(200,169,106,0.06)":"var(--bg2)",border:`0.5px solid ${urgent?"var(--bdrS)":"var(--bdr2)"}`,borderRadius:"var(--r)",marginBottom:5}}>
           <div style={{position:"absolute",inset:0,display:"flex",pointerEvents:"none"}}>
-            {hUrl&&<div style={{flex:1,backgroundImage:`url(${hUrl})`,backgroundSize:"cover",backgroundPosition:"center right",opacity:0.07}}/>}
-            {aUrl&&<div style={{flex:1,backgroundImage:`url(${aUrl})`,backgroundSize:"cover",backgroundPosition:"center left",opacity:0.07}}/>}
+            {hUrl&&<div style={{flex:1,backgroundImage:`url(${hUrl})`,backgroundSize:"cover",backgroundPosition:"center right",opacity:0.09}}/>}
+            {aUrl&&<div style={{flex:1,backgroundImage:`url(${aUrl})`,backgroundSize:"cover",backgroundPosition:"center left",opacity:0.09}}/>}
           </div>
           <div style={{position:"relative"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-              <span style={{fontSize:"9px",color:"var(--tx3)"}}>{m.group?"Grupo "+m.group:m.phase?.toUpperCase()}</span>
+              <span style={{fontSize:"10px",color:"var(--tx3)"}}>{m.group?"Grupo "+m.group:m.phase?.toUpperCase()}</span>
               <div style={{display:"flex",gap:4,alignItems:"center"}}>
                 {diff>0&&diff<3600000&&(
                   <span style={{display:"inline-flex",alignItems:"center",gap:3,padding:"2px 8px",borderRadius:20,fontSize:"9px",background:"rgba(217,95,95,0.15)",color:"var(--red)",fontWeight:500}}>
@@ -433,8 +433,9 @@ function Home({state,urlParticipant,pots,totalPot,boards,t,lang}) {
               </div>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr auto 1fr",gap:8,alignItems:"center"}}>
-              <div style={{textAlign:"right"}}>
-                <div style={{fontSize:size==="lg"?"15px":"13px",fontWeight:500}}>{m.home}</div>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"flex-end",gap:6}}>
+                <div style={{fontSize:size==="lg"?"15px":"13px",fontWeight:500,textAlign:"right"}}>{m.home}</div>
+                {hUrl&&<img src={hUrl} alt="" loading="lazy" style={{width:28,height:19,objectFit:"cover",borderRadius:3,flexShrink:0,opacity:0.9,boxShadow:"0 1px 4px rgba(0,0,0,0.5)"}}/>}
               </div>
               <div style={{textAlign:"center",minWidth:50}}>
                 {(m.homeScore!==null||diff<=0)
@@ -448,7 +449,8 @@ function Home({state,urlParticipant,pots,totalPot,boards,t,lang}) {
                     : <div style={{fontSize:"13px",color:"var(--tx3)"}}>vs</div>
                 }
               </div>
-              <div style={{textAlign:"left"}}>
+              <div style={{display:"flex",alignItems:"center",gap:6}}>
+                {aUrl&&<img src={aUrl} alt="" loading="lazy" style={{width:28,height:19,objectFit:"cover",borderRadius:3,flexShrink:0,opacity:0.9,boxShadow:"0 1px 4px rgba(0,0,0,0.5)"}}/>}
                 <div style={{fontSize:size==="lg"?"15px":"13px",fontWeight:500}}>{m.away}</div>
               </div>
             </div>
@@ -615,7 +617,10 @@ function Results({state,phase,setPhase,isAdmin,updM,toggleLock,lockPhase,t,lang}
                 </div>
                 {isAdmin&&m.phase!=="grupos"
                   ?<input value={m.home} placeholder="Local" onChange={e=>updM(m.id,"home",e.target.value)} style={{fontSize:"12px"}}/>
-                  :<span style={{fontSize:"12px",textAlign:"right"}}>{m.home||"—"}</span>
+                  :<div style={{display:"flex",alignItems:"center",justifyContent:"flex-end",gap:5}}>
+                    <span style={{fontSize:"12px"}}>{m.home||"—"}</span>
+                    {flagUrl(m.home)&&<img src={flagUrl(m.home)} alt="" loading="lazy" style={{width:22,height:15,objectFit:"cover",borderRadius:2,flexShrink:0,opacity:0.85}}/>}
+                  </div>
                 }
                 <div style={{display:"flex",gap:3,alignItems:"center",justifyContent:"center"}}>
                   <input type="number" min="0" max="20" className="si" key={`hs-${m.id}`} defaultValue={m.homeScore??""} disabled={!isAdmin} onBlur={e=>updM(m.id,"homeScore",e.target.value===""?null:parseInt(e.target.value))} style={{width:38}}/>
@@ -624,7 +629,10 @@ function Results({state,phase,setPhase,isAdmin,updM,toggleLock,lockPhase,t,lang}
                 </div>
                 {isAdmin&&m.phase!=="grupos"
                   ?<input value={m.away} placeholder="Visitante" onChange={e=>updM(m.id,"away",e.target.value)} style={{fontSize:"12px"}}/>
-                  :<span style={{fontSize:"12px"}}>{m.away||"—"}</span>
+                  :<div style={{display:"flex",alignItems:"center",gap:5}}>
+                    {flagUrl(m.away)&&<img src={flagUrl(m.away)} alt="" loading="lazy" style={{width:22,height:15,objectFit:"cover",borderRadius:2,flexShrink:0,opacity:0.85}}/>}
+                    <span style={{fontSize:"12px"}}>{m.away||"—"}</span>
+                  </div>
                 }
                 {isAdmin&&(
                   <button className="ghost" onClick={()=>toggleLock(m.id)} style={{padding:4,minWidth:"auto",border:"none"}} title="toggle lock">
@@ -978,13 +986,19 @@ function Predictions({ pid, setPid, phase, setPhase, participants, predictions, 
                 <div style={{fontSize:"9px",color:"var(--tx3)"}}>{m.group?`G-${m.group}`:m.id}</div>
                 <div style={{fontSize:"9px",color:"var(--tx3)",marginTop:2}}>{fmtD(m.kickoff,lang)}</div>
               </div>
-              <div style={{fontSize:"12px",textAlign:"right"}}>{m.home||"—"}</div>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"flex-end",gap:5}}>
+                <span style={{fontSize:"12px",textAlign:"right"}}>{m.home||"—"}</span>
+                {flagUrl(m.home)&&<img src={flagUrl(m.home)} alt="" loading="lazy" style={{width:22,height:15,objectFit:"cover",borderRadius:2,flexShrink:0,opacity:0.85}}/>}
+              </div>
               <div style={{display:"flex",gap:3,alignItems:"center",justifyContent:"center"}}>
                 <PredInput matchId={m.id} field="home" initialValue={pr.home} disabled={m.locked||!m.home} onSave={v=>setPred(pid,m.id,"home",v)}/>
                 <span style={{color:"var(--tx3)",fontSize:"11px"}}>–</span>
                 <PredInput matchId={m.id} field="away" initialValue={pr.away} disabled={m.locked||!m.away} onSave={v=>setPred(pid,m.id,"away",v)}/>
               </div>
-              <div style={{fontSize:"12px"}}>{m.away||"—"}</div>
+              <div style={{display:"flex",alignItems:"center",gap:5}}>
+                {flagUrl(m.away)&&<img src={flagUrl(m.away)} alt="" loading="lazy" style={{width:22,height:15,objectFit:"cover",borderRadius:2,flexShrink:0,opacity:0.85}}/>}
+                <span style={{fontSize:"12px"}}>{m.away||"—"}</span>
+              </div>
               <div>{m.locked?<Lock size={11} style={{color:"var(--teal)",opacity:.7}}/>:<Unlock size={11} style={{color:"var(--tx3)",opacity:.2}}/>}</div>
             </div>
           );
