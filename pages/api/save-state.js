@@ -20,12 +20,14 @@ export default async function handler(req, res) {
 
     if (adminPin) {
       if (!process.env.ADMIN_PIN || adminPin !== process.env.ADMIN_PIN) {
+        await new Promise(r => setTimeout(r, 1500))
         return res.status(401).json({ error: 'PIN incorrecto' })
       }
       await supabase.from('config').upsert({ key: SK, value: state }, { onConflict: 'key' })
     } else if (participantId && nip) {
       const participant = current.participants?.find(p => p.id === participantId)
       if (!participant || nip !== (participant.nip || '1234')) {
+        await new Promise(r => setTimeout(r, 1500))
         return res.status(401).json({ error: 'Credenciales incorrectas' })
       }
       const currentPreds = current.predictions?.[participantId]

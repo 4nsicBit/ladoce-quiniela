@@ -26,7 +26,10 @@ export default async function handler(req, res) {
     if (!participant) return res.status(404).json({ error: 'Participante no encontrado' })
 
     const nipCorrecto = participant.nip || '1234'
-    if (nip !== nipCorrecto) return res.status(401).json({ error: 'NIP incorrecto' })
+    if (nip !== nipCorrecto) {
+      await new Promise(r => setTimeout(r, 1500))
+      return res.status(401).json({ error: 'NIP incorrecto' })
+    }
 
     return res.status(200).json({ ok: true, name: participant.name })
   } catch (e) {
