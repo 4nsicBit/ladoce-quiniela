@@ -63,6 +63,7 @@ export default function ParticipantAccess() {
         localStorage.setItem("ld-participant-id", id)
         localStorage.setItem("ld-participant-name", data.name)
         localStorage.setItem("ld-session-ts", Date.now().toString())
+        localStorage.setItem("ld-token", data.token)
         router.push("/?participant=" + id)
       } else {
         setError(data.error || "NIP incorrecto. Intenta de nuevo.")

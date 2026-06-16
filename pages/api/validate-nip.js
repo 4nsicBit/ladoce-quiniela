@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import jwt from 'jsonwebtoken'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -31,7 +32,12 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'NIP incorrecto' })
     }
 
-    return res.status(200).json({ ok: true, name: participant.name })
+    const token = jwt.sign(
+      { sub: participantId, type: 'participant' },
+      process.env.JWT_SECRET,
+      { expiresIn: '12h' }
+    )
+    return res.status(200).json({ ok: true, name: participant.name, token })
   } catch (e) {
     return res.status(500).json({ error: 'Error interno' })
   }

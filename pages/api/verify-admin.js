@@ -1,3 +1,5 @@
+import jwt from 'jsonwebtoken'
+
 export default function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
   const { pin } = req.body
@@ -7,5 +9,10 @@ export default function handler(req, res) {
     await new Promise(r => setTimeout(r, 1500))
     return res.status(401).json({ error: 'PIN incorrecto' })
   }
-  return res.status(200).json({ ok: true })
+  const token = jwt.sign(
+    { type: 'admin' },
+    process.env.JWT_SECRET,
+    { expiresIn: '12h' }
+  )
+  return res.status(200).json({ ok: true, token })
 }

@@ -219,9 +219,10 @@ const load=async()=>{
     return data?data.value:null;
   }catch{ return null; }
 };
-const save=async(s,auth)=>{
+const save=async(s,token)=>{
+  if(!token) return;
   try{
-    await fetch('/api/save-state',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({state:s,...auth})});
+    await fetch('/api/save-state',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},body:JSON.stringify({state:s})});
   }catch{}
 };
 const mxn=(n)=>new Intl.NumberFormat("es-MX",{style:"currency",currency:"MXN",minimumFractionDigits:0}).format(Math.round(n||0));
@@ -1070,6 +1071,7 @@ export default function App() {
   const [pin,setPin]       = useState("");
   const pinRef = useRef(null);
   const adminPinRef = useRef(null);
+  const adminTokenRef = useRef(null);
   const router = useRouter();
   const urlParticipant = router.query.participant || null;
   // Timer de sesion movido a componente separado para evitar re-renders
@@ -1089,11 +1091,11 @@ export default function App() {
   // Persist
   useEffect(()=>{
     if(!ready) return;
-    if(isAdmin&&adminPinRef.current){
-      save(state,{adminPin:adminPinRef.current});
+    if(isAdmin&&adminTokenRef.current){
+      save(state,adminTokenRef.current);
     }else if(pid){
-      const participant=state.participants?.find(p=>p.id===pid);
-      save(state,{participantId:pid,nip:participant?.nip||'1234'});
+      const token=typeof window!=='undefined'?localStorage.getItem('ld-token'):null;
+      save(state,token);
     }
   },[state,ready]);
 
@@ -1195,7 +1197,8 @@ export default function App() {
   const tryLogin=async(val)=>{
     try{
       const r=await fetch('/api/verify-admin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin:val})});
-      if(r.ok){adminPinRef.current=val;setAdmin(true);setPin("");toast2("✓ Bienvenido admin");}
+      const d=await r.json();
+      if(r.ok&&d.token){adminPinRef.current=val;adminTokenRef.current=d.token;setAdmin(true);setPin("");toast2("✓ Bienvenido admin");}
       else toast2(t.admin.wrong);
     }catch{toast2(t.admin.wrong);}
   };
