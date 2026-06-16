@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken'
 
-export default function handler(req, res) {
+export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
   const { pin } = req.body
   if (!pin) return res.status(400).json({ error: 'PIN requerido' })
