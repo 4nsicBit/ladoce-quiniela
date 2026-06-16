@@ -413,9 +413,9 @@ function Home({state,urlParticipant,pots,totalPot,boards,t,lang}) {
       const hUrl=flagUrl(m.home), aUrl=flagUrl(m.away);
       return(
         <div style={{position:"relative",overflow:"hidden",padding:size==="lg"?"14px":"10px 12px",background:urgent?"rgba(200,169,106,0.06)":"var(--bg2)",border:`0.5px solid ${urgent?"var(--bdrS)":"var(--bdr2)"}`,borderRadius:"var(--r)",marginBottom:5}}>
-          <div style={{position:"absolute",inset:0,display:"flex",pointerEvents:"none"}}>
-            {hUrl&&<div style={{flex:1,backgroundImage:`url(${hUrl})`,backgroundSize:"cover",backgroundPosition:"center right",opacity:0.09}}/>}
-            {aUrl&&<div style={{flex:1,backgroundImage:`url(${aUrl})`,backgroundSize:"cover",backgroundPosition:"center left",opacity:0.09}}/>}
+          <div style={{position:"absolute",inset:0,pointerEvents:"none",overflow:"hidden"}}>
+            {hUrl&&<div style={{position:"absolute",inset:0,backgroundImage:`url(${hUrl})`,backgroundSize:"cover",backgroundPosition:"center",opacity:0.14,clipPath:"polygon(0 0,60% 0,40% 100%,0 100%)"}}/>}
+            {aUrl&&<div style={{position:"absolute",inset:0,backgroundImage:`url(${aUrl})`,backgroundSize:"cover",backgroundPosition:"center",opacity:0.14,clipPath:"polygon(40% 0,100% 0,100% 100%,60% 100%)"}}/>}
           </div>
           <div style={{position:"relative"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
