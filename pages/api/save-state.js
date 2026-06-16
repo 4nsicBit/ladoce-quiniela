@@ -19,8 +19,9 @@ export default async function handler(req, res) {
     if (!current) return res.status(404).json({ error: 'Estado no encontrado' })
 
     if (adminPin) {
-      const correctPin = current.config?.adminPin || '1234'
-      if (adminPin !== correctPin) return res.status(401).json({ error: 'PIN incorrecto' })
+      if (!process.env.ADMIN_PIN || adminPin !== process.env.ADMIN_PIN) {
+        return res.status(401).json({ error: 'PIN incorrecto' })
+      }
       await supabase.from('config').upsert({ key: SK, value: state }, { onConflict: 'key' })
     } else if (participantId && nip) {
       const participant = current.participants?.find(p => p.id === participantId)

@@ -820,7 +820,7 @@ function Admin({state,upd,isAdmin,setAdmin,pin,setPin,tryLogin,addP,removeP,
         <section style={{marginBottom:"2rem"}}>
           <div style={{fontSize:"10px",fontWeight:500,color:"var(--tx3)",letterSpacing:".1em",textTransform:"uppercase",marginBottom:11}}>{t.admin.rulesTitle}</div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(135px,1fr))",gap:9}}>
-            {[{l:t.admin.exactPts,f:"pointsExact"},{l:t.admin.winnerPts,f:"pointsWinner"},{l:t.admin.knockoutMult,f:"knockoutMultiplier"},{l:t.admin.adminPin,f:"adminPin",tp:"text"}].map(({l,f,tp="number"})=>(
+            {[{l:t.admin.exactPts,f:"pointsExact"},{l:t.admin.winnerPts,f:"pointsWinner"},{l:t.admin.knockoutMult,f:"knockoutMultiplier"}].map(({l,f,tp="number"})=>(
               <div key={f}>
                 <div style={{fontSize:"10px",color:"var(--tx3)",marginBottom:3}}>{l}</div>
                 <input type={tp} value={state.config[f]} onChange={e=>upd(s=>({...s,config:{...s.config,[f]:tp==="number"?(parseFloat(e.target.value)||0):e.target.value}}))}/>
@@ -1192,10 +1192,13 @@ export default function App() {
   const upd=(fn)=>setState(p=>fn(p));
 
   // Admin
-  const tryLogin=(val)=>{
-  if(val===state.config.adminPin){adminPinRef.current=val;setAdmin(true);setPin("");toast2("✓ Bienvenido admin");}
-  else toast2(t.admin.wrong);
-};
+  const tryLogin=async(val)=>{
+    try{
+      const r=await fetch('/api/verify-admin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin:val})});
+      if(r.ok){adminPinRef.current=val;setAdmin(true);setPin("");toast2("✓ Bienvenido admin");}
+      else toast2(t.admin.wrong);
+    }catch{toast2(t.admin.wrong);}
+  };
   const addP=(name,nip)=>{ if(!name.trim()) return; upd(s=>({...s,participants:[...s.participants,{id:`p${Date.now()}`,name:name.trim(),payments:{},nip:nip||"1234"}]})); };
   const removeP=(id)=>upd(s=>{ const p={...s.predictions}; delete p[id]; return{...s,participants:s.participants.filter(x=>x.id!==id),predictions:p}; });
   const togglePay=(pid,k)=>upd(s=>({...s,participants:s.participants.map(p=>p.id===pid?{...p,payments:{...p.payments,[k]:!p.payments[k]}}:p)}));
