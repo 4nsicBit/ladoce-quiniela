@@ -5,6 +5,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
+// Mapeo nombres football-data.org (inglés) → nombres en la app (español)
 const TEAM_MAP = {
   'Mexico': 'México',
   'South Africa': 'Sudáfrica',
@@ -23,9 +24,9 @@ const TEAM_MAP = {
   'Turkey': 'Turquía',
   'Paraguay': 'Paraguay',
   'United States': 'Estados Unidos',
-  'USA': 'Estados Unidos',
   'Germany': 'Alemania',
   'Curacao': 'Curazao',
+  'Curaçao': 'Curazao',
   "Ivory Coast": 'Costa de Marfil',
   "Côte d'Ivoire": 'Costa de Marfil',
   'Netherlands': 'Países Bajos',
@@ -65,8 +66,8 @@ function toApp(name) {
   return TEAM_MAP[name] || name
 }
 
-// Statuses que tienen marcador real (en curso o terminados)
-const SCORED_STATUSES = new Set(['1H','HT','2H','ET','BT','P','SUSP','INT','LIVE','FT','AET','PEN'])
+// Statuses de football-data.org que tienen marcador real
+const SCORED_STATUSES = new Set(['IN_PLAY', 'PAUSED', 'FINISHED'])
 
 export default async function handler(req, res) {
   const auth = req.headers.authorization
@@ -75,29 +76,33 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Usar fecha UTC de hoy — cubre partidos nocturnos que en UTC ya son el día siguiente
-    const todayUTC = new Date().toISOString().split('T')[0]
+    const now = new Date()
+    const todayUTC = now.toISOString().split('T')[0]
+    // También consultar ayer UTC para cubrir partidos nocturnos (ej: 23:00 CDMX = 04:00 UTC del día siguiente)
+    const yesterdayUTC = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString().split('T')[0]
 
     const apiRes = await fetch(
-      `https://v3.football.api-sports.io/fixtures?date=${todayUTC}`,
-      { headers: { 'x-apisports-key': process.env.API_FOOTBALL_KEY } }
+      `https://api.football-data.org/v4/competitions/WC/matches?dateFrom=${yesterdayUTC}&dateTo=${todayUTC}`,
+      { headers: { 'X-Auth-Token': process.env.FOOTBALL_DATA_TOKEN } }
     )
     const apiData = await apiRes.json()
 
-    // Detectar errores de la API (cuota, key inválida, etc.)
-    if (apiData.errors && Object.keys(apiData.errors).length > 0) {
-      console.error('[update-scores] API Football error:', JSON.stringify(apiData.errors))
-      return res.status(200).json({ ok: false, apiErrors: apiData.errors })
+    // Detectar errores de la API (token inválido, cuota, etc.)
+    if (apiData.errorCode) {
+      console.error('[update-scores] API error:', apiData.message)
+      return res.status(200).json({ ok: false, apiErrors: { code: apiData.errorCode, message: apiData.message } })
     }
 
-    const allFixtures = apiData.response || []
-    // Solo fixtures que ya tienen marcador (en curso o terminados)
-    const fixtures = allFixtures.filter(f => SCORED_STATUSES.has(f.fixture.status.short))
+    const allMatches = apiData.matches || []
+    // Solo partidos en curso o terminados con marcador disponible
+    const fixtures = allMatches.filter(m =>
+      SCORED_STATUSES.has(m.status) && m.score.fullTime.home !== null
+    )
 
-    console.log(`[update-scores] ${todayUTC} — total: ${allFixtures.length}, con marcador: ${fixtures.length}`)
+    console.log(`[update-scores] ${yesterdayUTC}→${todayUTC} — total: ${allMatches.length}, con marcador: ${fixtures.length}`)
 
     if (fixtures.length === 0) {
-      return res.status(200).json({ ok: true, updated: 0, total: allFixtures.length, withScore: 0, date: todayUTC })
+      return res.status(200).json({ ok: true, updated: 0, total: allMatches.length, withScore: 0 })
     }
 
     const { data } = await supabase
@@ -115,8 +120,9 @@ export default async function handler(req, res) {
     const newMatches = state.matches.map(match => {
       const matchTime = new Date(match.kickoff).getTime()
 
+      // Buscar fixture por kickoff ±15 min
       const candidates = fixtures.filter(f => {
-        const ft = new Date(f.fixture.date).getTime()
+        const ft = new Date(f.utcDate).getTime()
         return Math.abs(ft - matchTime) < 15 * 60 * 1000
       })
 
@@ -124,18 +130,19 @@ export default async function handler(req, res) {
       if (candidates.length === 1) {
         fixture = candidates[0]
       } else if (candidates.length > 1) {
-        fixture = candidates.find(f => toApp(f.teams.home.name) === match.home)
+        // Partidos simultáneos — desambiguar por equipo local
+        fixture = candidates.find(f => toApp(f.homeTeam.name) === match.home)
       }
 
       if (!fixture) return match
 
-      const homeScore = fixture.goals.home ?? 0
-      const awayScore = fixture.goals.away ?? 0
+      const homeScore = fixture.score.fullTime.home ?? 0
+      const awayScore = fixture.score.fullTime.away ?? 0
 
       if (homeScore === match.homeScore && awayScore === match.awayScore) return match
 
       updated++
-      log.push(`${match.home} ${homeScore}-${awayScore} ${match.away} [${fixture.fixture.status.short}]`)
+      log.push(`${match.home} ${homeScore}-${awayScore} ${match.away} [${fixture.status}]`)
       return { ...match, homeScore, awayScore }
     })
 
@@ -149,7 +156,7 @@ export default async function handler(req, res) {
       }
     }
 
-    return res.status(200).json({ ok: true, updated, withScore: fixtures.length, date: todayUTC, changes: log })
+    return res.status(200).json({ ok: true, updated, withScore: fixtures.length, changes: log })
   } catch (e) {
     console.error('update-scores error:', e)
     return res.status(500).json({ error: 'Error interno', message: e.message })
