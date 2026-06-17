@@ -623,9 +623,9 @@ function Results({state,phase,setPhase,isAdmin,updM,toggleLock,lockPhase,t,lang}
                   </div>
                 }
                 <div style={{display:"flex",gap:3,alignItems:"center",justifyContent:"center"}}>
-                  <input type="number" min="0" max="20" className="si" key={`hs-${m.id}`} defaultValue={m.homeScore??""} disabled={!isAdmin} onBlur={e=>updM(m.id,"homeScore",e.target.value===""?null:parseInt(e.target.value))} style={{width:38}}/>
+                  <input type="number" min="0" max="20" className="si" key={`hs-${m.id}-${m.homeScore??'n'}`} defaultValue={m.homeScore??""} disabled={!isAdmin} onBlur={e=>updM(m.id,"homeScore",e.target.value===""?null:parseInt(e.target.value))} style={{width:38}}/>
                   <span style={{color:"var(--tx3)",fontSize:"11px"}}>–</span>
-                  <input type="number" min="0" max="20" className="si" key={`as-${m.id}`} defaultValue={m.awayScore??""} disabled={!isAdmin} onBlur={e=>updM(m.id,"awayScore",e.target.value===""?null:parseInt(e.target.value))} style={{width:38}}/>
+                  <input type="number" min="0" max="20" className="si" key={`as-${m.id}-${m.awayScore??'n'}`} defaultValue={m.awayScore??""} disabled={!isAdmin} onBlur={e=>updM(m.id,"awayScore",e.target.value===""?null:parseInt(e.target.value))} style={{width:38}}/>
                 </div>
                 {isAdmin&&m.phase!=="grupos"
                   ?<input value={m.away} placeholder="Visitante" onChange={e=>updM(m.id,"away",e.target.value)} style={{fontSize:"12px"}}/>
