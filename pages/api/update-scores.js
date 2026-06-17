@@ -133,7 +133,7 @@ export default async function handler(req, res) {
     if (updated > 0) {
       await supabase
         .from('config')
-        .upsert({ key: 'ld-quiniela-2026-v1', value: { ...state, matches: newMatches } })
+        .upsert({ key: 'ld-quiniela-2026-v1', value: { ...state, matches: newMatches } }, { onConflict: 'key' })
     }
 
     return res.status(200).json({ ok: true, updated, live: liveFixtures.length })
