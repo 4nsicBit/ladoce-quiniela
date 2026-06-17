@@ -1119,9 +1119,12 @@ export default function App() {
     const interval = setInterval(async ()=>{
       const fresh = await load();
       if(fresh) setState(prev=>({...prev,
-        // Solo actualizar partidos y resultados, no predicciones ni config
-        // para evitar perder el foco en inputs mientras el usuario escribe
-        matches: fresh.matches,
+        matches: fresh.matches.map(m=>{
+          const prev_m = prev.matches.find(pm=>pm.id===m.id);
+          const pastKickoff = new Date(m.kickoff).getTime()-30*60*1000 <= Date.now();
+          if(prev_m?.locked || pastKickoff) return {...m, locked:true};
+          return m;
+        }),
         participants: fresh.participants,
         pools: fresh.pools,
       }));

@@ -36,14 +36,25 @@ export default async function handler(req, res) {
       await supabase.from('config').upsert({ key: SK, value: state }, { onConflict: 'key' })
     } else if (payload.type === 'participant') {
       const participantId = payload.sub
-      const currentPreds = current.predictions?.[participantId]
-      const newPreds = state.predictions?.[participantId]
-      if (JSON.stringify(currentPreds) === JSON.stringify(newPreds)) {
+      const currentPreds = current.predictions?.[participantId] || {}
+      const newPreds = state.predictions?.[participantId] || {}
+      const now = Date.now()
+      // Solo permitir cambios en partidos no bloqueados y cuyo kickoff no ha pasado
+      const safePreds = { ...currentPreds }
+      Object.keys(newPreds).forEach(matchId => {
+        const match = current.matches?.find(m => m.id === matchId)
+        if (!match) return
+        const pastKickoff = new Date(match.kickoff).getTime() - 30 * 60 * 1000 <= now
+        if (!match.locked && !pastKickoff) {
+          safePreds[matchId] = newPreds[matchId]
+        }
+      })
+      if (JSON.stringify(currentPreds) === JSON.stringify(safePreds)) {
         return res.status(200).json({ ok: true, changed: false })
       }
       const safeState = {
         ...current,
-        predictions: { ...current.predictions, [participantId]: newPreds }
+        predictions: { ...current.predictions, [participantId]: safePreds }
       }
       await supabase.from('config').upsert({ key: SK, value: safeState }, { onConflict: 'key' })
     } else {
