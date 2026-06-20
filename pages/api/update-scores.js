@@ -156,7 +156,14 @@ export default async function handler(req, res) {
       }
     }
 
-    return res.status(200).json({ ok: true, updated, withScore: fixtures.length, changes: log })
+    return res.status(200).json({
+      ok: true, updated, withScore: fixtures.length, changes: log,
+      apiFixtures: fixtures.map(f => ({
+        home: f.homeTeam.name, away: f.awayTeam.name,
+        utcDate: f.utcDate, status: f.status,
+        score: `${f.score.fullTime.home}-${f.score.fullTime.away}`
+      }))
+    })
   } catch (e) {
     console.error('update-scores error:', e)
     return res.status(500).json({ error: 'Error interno', message: e.message })
