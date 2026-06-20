@@ -847,7 +847,6 @@ function Admin({state,upd,isAdmin,setAdmin,pin,setPin,tryLogin,addP,removeP,
             {state.matches
               .filter(m=>m.home&&m.away)
               .sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff))
-              .slice(0,20)
               .map(m=>{
                 const st=status(m.kickoff);
                 const stColor=st==="live"?"var(--amber)":st==="finished"?"var(--green)":"var(--tx3)";
