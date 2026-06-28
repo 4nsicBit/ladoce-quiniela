@@ -133,12 +133,12 @@ const GROUP_MATCHES_DATA = [
   {g:"G",h:"Bélgica",a:"Nueva Zelanda",k:"2026-06-26T20:00:00-05:00"},
   {g:"G",h:"Egipto",a:"Irán",k:"2026-06-26T20:00:00-05:00"},
   // Jun 27
-  {g:"J",h:"Argentina",a:"Jordania",k:"2026-06-27T14:00:00-05:00"},
-  {g:"J",h:"Argelia",a:"Austria",k:"2026-06-27T14:00:00-05:00"},
-  {g:"K",h:"Portugal",a:"Colombia",k:"2026-06-27T17:00:00-05:00"},
-  {g:"K",h:"RD Congo",a:"Uzbekistán",k:"2026-06-27T17:00:00-05:00"},
-  {g:"L",h:"Inglaterra",a:"Panamá",k:"2026-06-27T20:00:00-05:00"},
-  {g:"L",h:"Croacia",a:"Ghana",k:"2026-06-27T20:00:00-05:00"},
+  {g:"L",h:"Inglaterra",a:"Panamá",k:"2026-06-27T13:00:00-06:00"},
+  {g:"L",h:"Croacia",a:"Ghana",k:"2026-06-27T13:00:00-06:00"},
+  {g:"K",h:"Portugal",a:"Colombia",k:"2026-06-27T17:30:00-06:00"},
+  {g:"K",h:"RD Congo",a:"Uzbekistán",k:"2026-06-27T17:30:00-06:00"},
+  {g:"J",h:"Argentina",a:"Jordania",k:"2026-06-27T20:00:00-06:00"},
+  {g:"J",h:"Argelia",a:"Austria",k:"2026-06-27T20:00:00-06:00"},
 ];
 
 const generateGroupMatches = () => {
